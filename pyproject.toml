@@ -1,0 +1,15 @@
+[project]
+name = "Abschlussarbeit_PUE2"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Mani5623", email = "hm9703@mci4me.at"},
+]
+dependencies = ["numpy>=2.3.0", "pandas>=2.3.0", "streamlit>=1.45.1", "plotly>=6.1.2"]
+requires-python = "==3.13.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
