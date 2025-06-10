@@ -3,8 +3,6 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 from scipy.signal import find_peaks
-import plotly.io as pio
-pio.renderers.default = "browser"
 
 class EKGdata:
 
@@ -19,32 +17,31 @@ class EKGdata:
         fig = px.line(self.df.head(2000), x="Zeit in ms", y="Messwerte in mV", title="EKG Zeitreihe")
         return fig
 
-    def find_peaks(self, max_puls, height=None):
+    def find_peaks(self, max_puls=220, height=None):
         signal = self.df["Messwerte in mV"]
-    
         time = self.df["Zeit in ms"]
         sampling_interval = np.median(np.diff(time))  # ms pro Messpunkt
         sampling_rate = 1000 / sampling_interval       # Hz
-    
+
         # Mindestabstand in Samples basierend auf Maximalpuls
         min_distance_ms = 60000 / max_puls              # ms
         distance_samples = int(min_distance_ms / sampling_interval)
-    
+
         if height is None:
             height = np.percentile(signal, 90)
-    
+
         peaks, _ = find_peaks(signal, distance=distance_samples, height=height)
-    
+
         self.peaks = peaks
         self.df["Peak"] = 0
         self.df.loc[peaks, "Peak"] = 1
-    
-        return peaks
 
+        return peaks
 
     def estimate_hr(self, sampling_rate_hz=1000):
         if self.peaks is None:
-            self.find_peaks()
+            # Standard Maximalpuls 220 falls nicht anders bekannt
+            self.find_peaks(max_puls=220)
         rr_intervals = np.diff(self.peaks) / sampling_rate_hz
         if len(rr_intervals) == 0:
             return 0
@@ -52,15 +49,26 @@ class EKGdata:
         heart_rate = 60 / avg_rr
         return round(heart_rate)
 
+    def get_instant_hr(self, sampling_rate_hz=1000):
+        """Berechnet die instantane Herzfrequenz (bpm) zwischen zwei Peaks (RR-Intervalle)."""
+        if self.peaks is None:
+            self.find_peaks(max_puls=220)
+        rr_intervals = np.diff(self.peaks) / sampling_rate_hz  # Zeit in Sekunden
+        if len(rr_intervals) == 0:
+            return np.array([])
+        instant_hr = 60 / rr_intervals
+        return instant_hr
+
     def plot_with_peaks(self, window_ms=5000):
         if self.peaks is None:
-            self.find_peaks()
+            self.find_peaks(max_puls=220)
         df_plot = self.df  # Alle Daten anzeigen
         fig = px.line(df_plot, x="Zeit in ms", y="Messwerte in mV", title="EKG mit Peaks")
         peak_points = df_plot[df_plot["Peak"] == 1]
         fig.add_scatter(x=peak_points["Zeit in ms"], y=peak_points["Messwerte in mV"],
                         mode="markers", name="Peaks")
-    # Initial sichtbarer Bereich auf window_ms Breite setzen (Start bei erstem Zeitwert)
+
+        # Initial sichtbarer Bereich auf window_ms Breite setzen (Start bei erstem Zeitwert)
         start_time = df_plot["Zeit in ms"].iloc[0]
         end_time = start_time + window_ms
         fig.update_layout(
@@ -71,8 +79,6 @@ class EKGdata:
             )
         )
         return fig
-
-
 
 
 if __name__ == "__main__":
@@ -86,7 +92,7 @@ if __name__ == "__main__":
     print(ekg.df.head())
 
     ekg.find_peaks()
-    print("Herzfrequenz:", ekg.estimate_hr(), "bpm")
+    print("Herzfrequenz (geschätzt):", ekg.estimate_hr(), "bpm")
 
     # Optional: Show Plot (nur für Entwicklung, nicht in Streamlit verwenden)
     # fig = ekg.plot_with_peaks()
