@@ -9,6 +9,7 @@ import read_pandas
 from PIL import Image
 from person import Person
 from ekgdata import EKGdata
+import read_fit_file
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
 
@@ -22,7 +23,7 @@ selected_name = st.sidebar.selectbox("Name der Versuchsperson", options=person_n
 person_obj = Person.load_by_name(selected_name)
 
 # Tabs definieren
-tab1, tab2, tab3 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest"])
+tab1, tab2, tab3,tab4 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "Fit File"])
 
 with tab1:
     st.header("Versuchsperson auswählen")
@@ -165,3 +166,19 @@ with tab3:
                 st.error("CSV-Datei nicht gefunden. Überprüfen Sie den Pfad 'data/activities/activity.csv'")
             except Exception as e:
                 st.error(f"Fehler beim Verarbeiten der Daten: {e}")
+
+    with tab4:
+
+        fit_file_path = 'data/fit_file/activity_test.fit'
+        fit_df = read_fit_file.read_fit_file(fit_file_path)
+        hr = np.array(fit_df['heart_rate'])
+        power = np.array(fit_df['power'])
+        altitude = np.array(fit_df['altitude'])
+        distance = np.array(fit_df['distance'])
+        st.write(f"Durchschnittliche Herzfrequenz im Workout: {np.mean(hr):.2f} bpm")
+        st.write(f"Maximale Herzfrequenz im Workout {np.max(hr)} bpm")
+        st.write(f"Durchschnittliche Power im Workout: {np.mean(power):.2f} W")
+        st.write(f"Maximale Power im Workout: {np.max(power):.2f} W")
+        st.write(f"Dinstanzr: {np.max(distance)} m")
+
+

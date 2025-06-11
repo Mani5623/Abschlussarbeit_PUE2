@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:a15ad854937cc26969140b4a56e75f188063724281f281ce48062b18619cf789"
+content_hash = "sha256:1ade968b088fe6146799652cae0fcc69da9ad78d8e040e28afb779ccc01f4dba"
 
 [[metadata.targets]]
 requires_python = "==3.13.*"
@@ -120,6 +120,15 @@ marker = "platform_system == \"Windows\""
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
+]
+
+[[package]]
+name = "fitparse"
+version = "1.2.0"
+summary = "Python library to parse ANT/Garmin .FIT files"
+groups = ["default"]
+files = [
+    {file = "fitparse-1.2.0.tar.gz", hash = "sha256:2d691022452dea6dabad13cc6e017ca467fe8a3a895cd3ac67a50a7bb716b4a9"},
 ]
 
 [[package]]
