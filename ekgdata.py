@@ -6,7 +6,7 @@ from scipy.signal import find_peaks
 
 class EKGdata:
 
-    def __init__(self, ekg_dict):
+    def __init__(self, ekg_dict, max_puls=220):  ### NEU: max_puls übergeben
         self.id = ekg_dict["id"]
         self.date = ekg_dict["date"]
         self.data_path = ekg_dict["result_link"]
@@ -15,19 +15,23 @@ class EKGdata:
 
         time = self.df["Zeit in ms"].values
         sampling_interval = np.median(np.diff(time))
-        self.sampling_rate = 1000 / sampling_interval 
+        self.sampling_rate = 1000 / sampling_interval
+
+        self.max_puls = max_puls  ### NEU: Maximalpuls als Attribut speichern
 
     def plot_time_series(self):
         fig = px.line(self.df.head(2000), x="Zeit in ms", y="Messwerte in mV", title="EKG Zeitreihe")
         return fig
 
-    def find_peaks(self, max_puls=220, height=None):
+    def find_peaks(self, max_puls=None, height=None):
+        if max_puls is None:
+            max_puls = self.max_puls  ### NEU: Standard ist self.max_puls
+
         signal = self.df["Messwerte in mV"]
         time = self.df["Zeit in ms"]
         sampling_interval = 1000 / self.sampling_rate
 
-        # Mindestabstand in Samples basierend auf Maximalpuls
-        min_distance_ms = 60000 / max_puls              # ms
+        min_distance_ms = 60000 / max_puls
         distance_samples = int(min_distance_ms / sampling_interval)
 
         if height is None:
@@ -43,11 +47,11 @@ class EKGdata:
 
     def estimate_hr(self):
         if self.peaks is None:
-            self.find_peaks(max_puls=220)
+            self.find_peaks()
 
         time = self.df["Zeit in ms"].values
-        peak_times = time[self.peaks] / 1000  # Zeit in Sekunden
-        rr_intervals = np.diff(peak_times)    # Sekunden
+        peak_times = time[self.peaks] / 1000
+        rr_intervals = np.diff(peak_times)
 
         if len(rr_intervals) == 0:
             return 0
@@ -58,10 +62,10 @@ class EKGdata:
 
     def get_instant_hr(self):
         if self.peaks is None:
-            self.find_peaks(max_puls=220)
+            self.find_peaks()
 
         time = self.df["Zeit in ms"].values
-        peak_times = time[self.peaks] / 1000  # Sekunden
+        peak_times = time[self.peaks] / 1000
         rr_intervals = np.diff(peak_times)
 
         if len(rr_intervals) == 0:
@@ -70,17 +74,16 @@ class EKGdata:
         instant_hr = 60 / rr_intervals
         return instant_hr
 
-
     def plot_with_peaks(self, window_ms=5000):
         if self.peaks is None:
-            self.find_peaks(max_puls=220)
-        df_plot = self.df  # Alle Daten anzeigen
+            self.find_peaks()
+
+        df_plot = self.df
         fig = px.line(df_plot, x="Zeit in ms", y="Messwerte in mV", title="EKG mit Peaks")
         peak_points = df_plot[df_plot["Peak"] == 1]
         fig.add_scatter(x=peak_points["Zeit in ms"], y=peak_points["Messwerte in mV"],
                         mode="markers", name="Peaks")
 
-        # Initial sichtbarer Bereich auf window_ms Breite setzen (Start bei erstem Zeitwert)
         start_time = df_plot["Zeit in ms"].iloc[0]
         end_time = start_time + window_ms
         fig.update_layout(
@@ -91,28 +94,25 @@ class EKGdata:
             )
         )
         return fig
-    
+
     def min_hr(self):
-        """Gibt die minimale Herzfrequenz im Datensatz basierend auf RR-Intervallen zurück"""
         instant_hr = self.get_instant_hr()
         if len(instant_hr) == 0:
             return 0
         return round(np.min(instant_hr))
 
     def hr_variability(self):
-        """Herzfrequenzvariabilität (Standardabweichung der RR-Intervalle in ms)"""
         if self.peaks is None:
             self.find_peaks()
 
         time = self.df["Zeit in ms"].values
         peak_times = time[self.peaks]
-        rr_intervals = np.diff(peak_times)  # in ms
+        rr_intervals = np.diff(peak_times)
         if len(rr_intervals) == 0:
             return 0
         return round(np.std(rr_intervals), 2)
 
     def rr_interval_avg(self):
-        """Durchschnitt der RR-Intervalle in ms"""
         if self.peaks is None:
             self.find_peaks()
 
@@ -124,11 +124,9 @@ class EKGdata:
         return round(np.mean(rr_intervals), 2)
 
     def pp_interval_avg(self):
-        """PP-Intervall Durchschnitt = RR bei normalem Sinusrhythmus"""
         return self.rr_interval_avg()
 
     def detect_irregularities(self, tolerance=0.1):
-        """Erkennt Unregelmäßigkeiten: RR und PP Abweichungen > tolerance"""
         if self.peaks is None:
             self.find_peaks()
 
@@ -145,7 +143,7 @@ class EKGdata:
 
         return {
             "irregular_rr": np.any(irregular),
-            "irregular_pp": np.any(irregular)  # identisch zu RR bei Sinusrhythmus
+            "irregular_pp": np.any(irregular)
         }
 
     def qrs_analysis(self):
@@ -154,7 +152,7 @@ class EKGdata:
 
         time = self.df["Zeit in ms"].values
         peak_times = time[self.peaks]
-        rr_intervals = np.diff(peak_times)  # in ms
+        rr_intervals = np.diff(peak_times)
 
         if len(rr_intervals) == 0:
             return {
@@ -162,30 +160,24 @@ class EKGdata:
                 "rr_avg_ms": None
             }
 
-        rr_avg = np.mean(rr_intervals)  # ### NEU ###
+        rr_avg = np.mean(rr_intervals)
 
-        return {  # ### NEU ###
+        return {
             "rr_avg_ms": round(rr_avg, 2),
             "rr_std_ms": round(np.std(rr_intervals), 2),
             "message": "Basis-QRS-Analyse durchgeführt (nur RR-Statistik)"
         }
-
-
-
 
 if __name__ == "__main__":
     print("This is a module with some functions to read the EKG data")
     with open("data/person_db.json") as file:
         person_data = json.load(file)
     ekg_dict = person_data[0]["ekg_tests"][0]
-    ekg = EKGdata(ekg_dict)
+    max_puls = person_data[0].get("max_puls", 220)  ### NEU: Maximalpuls holen
+    ekg = EKGdata(ekg_dict, max_puls=max_puls)
 
     print("EKG-Daten:")
     print(ekg.df.head())
 
     ekg.find_peaks()
     print("Herzfrequenz (geschätzt):", ekg.estimate_hr(), "bpm")
-
-    # Optional: Show Plot (nur für Entwicklung, nicht in Streamlit verwenden)
-    # fig = ekg.plot_with_peaks()
-    # fig.show()
