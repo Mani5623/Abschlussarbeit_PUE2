@@ -10,6 +10,7 @@ from PIL import Image
 from person import Person
 from ekgdata import EKGdata
 import read_fit_file
+from streamlit_folium import st_folium
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
 
@@ -183,12 +184,26 @@ with tab3:
 
 with tab4:
     st.header("🏋️ Fit File Analyse")
+
+    # Initialisiere Session-State für den Button
+    if 'fitfile_submitted' not in st.session_state:
+        st.session_state['fitfile_submitted'] = False
+    if 'last_file' not in st.session_state:
+        st.session_state['last_file'] = None
+
     uploaded_fit_file = st.file_uploader("Lade ein FIT-File hoch", type=["fit"])
     sportarten = ["Radfahren", "Laufen", "Schwimmen", "Sonstiges"]
     selected_sport = st.selectbox("Sportart auswählen", options=sportarten)
-    abschicken = st.button("Abschicken")
 
-    if uploaded_fit_file is not None and abschicken:
+    # Reset, wenn eine neue Datei hochgeladen wird
+    if uploaded_fit_file is not None and st.session_state['last_file'] != uploaded_fit_file:
+        st.session_state['fitfile_submitted'] = False
+        st.session_state['last_file'] = uploaded_fit_file
+
+    if st.button("Abschicken"):
+        st.session_state['fitfile_submitted'] = True
+
+    if uploaded_fit_file is not None and st.session_state['fitfile_submitted']:
         df = read_fit_file.read_fit_file(uploaded_fit_file)
         duration_hours = read_fit_file.calculate_workout_duration_hours(df)
 
@@ -216,11 +231,11 @@ with tab4:
         if fig_alt:
             st.plotly_chart(fig_alt, use_container_width=True)
 
-        fig_gpx = read_fit_file.plot_gpx(df)
-        if fig_gpx:
-            st.plotly_chart(fig_gpx, use_container_width=True)
-    elif uploaded_fit_file is not None and not abschicken:
-        st.info("Bitte wählen Sie die Sportart und klicken Sie auf 'Abschicken'.")
+        m = read_fit_file.plot_gpx_folium(df)
+        if m:
+            from streamlit_folium import st_folium
+            st_folium(m, width=700, height=500)
     else:
-        st.info("Bitte laden Sie zuerst ein FIT-File hoch.")
+        st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
+
 

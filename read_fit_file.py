@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import gpxpy
+import folium
 
 def read_fit_file(file):
     fitfile = FitFile(file)
@@ -76,7 +77,7 @@ def get_lat_lon(df):
         lon = df['enhanced_position_long']
     elif 'position_lat' in df and 'position_long' in df:
         lat = df['position_lat'] / 1e7
-        lon = df['position_long'] / 1e7
+        lon = df['position_long'] /1e7
     else:
         return None, None
     mask = (~pd.isnull(lat)) & (~pd.isnull(lon)) & (lat != 0) & (lon != 0)
@@ -106,6 +107,24 @@ def plot_gpx(df):
     )
     return fig
 
+def plot_gpx_folium(df):
+    lat, lon = get_lat_lon(df)
+    if lat is None or lon is None or len(lat) < 2:
+        return None
+
+    # Konvertiere zu Listen für Folium
+    latitudes = list(lat)
+    longitudes = list(lon)
+
+    # Startpunkt der Karte (erster GPS-Punkt)
+    start_coords = [latitudes[0], longitudes[0]]
+    m = folium.Map(location=start_coords, zoom_start=13)
+
+    # Route als PolyLine hinzufügen
+    folium.PolyLine(list(zip(latitudes, longitudes)), color='blue', weight=5).add_to(m)
+
+    return m
+
 # Optional: Testlauf
 if __name__ == "__main__":
     fit_file_path = 'data/fit_file/pillersee.fit'
@@ -114,4 +133,6 @@ if __name__ == "__main__":
     fig_hr = plot_heart_rate(df, duration_hours)
     fig_alt = plot_altitude(df, duration_hours)
     fig_gpx = plot_gpx(df)
+    m = plot_gpx_folium(df)
+    print(get_lat_lon(df))
     print(df.head())
