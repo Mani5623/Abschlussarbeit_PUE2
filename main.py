@@ -13,22 +13,16 @@ import read_fit_file
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
 
-# Personennamen laden
-person_names = read_data.get_person_list()
-
-# Person auswählen (Sidebar, damit Auswahl vor Tabs erfolgt)
-selected_name = st.sidebar.selectbox("Name der Versuchsperson", options=person_names)
-
-# Person-Objekt erzeugen
-person_obj = Person.load_by_name(selected_name)
-
-# Tabs definieren
-tab1, tab2, tab3,tab4 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "Fit File"])
+# Tabs als Registerkarten oben
+tab1, tab2, tab3, tab4 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File"])
 
 with tab1:
-    st.header("Versuchsperson auswählen")
+    # Personenauswahl
+    person_names = read_data.get_person_list()
+    selected_name = st.selectbox("Name der Versuchsperson", options=person_names, key="tab1_select")
+    person_obj = Person.load_by_name(selected_name)
 
-    # Bild und Infos
+    st.header("Versuchsperson auswählen")
     if person_obj:
         picture_path = person_obj.picture_path or DEFAULT_IMAGE_PATH
         try:
@@ -42,14 +36,17 @@ with tab1:
         st.write("Personen-ID:", person_obj.id)
         gender = person_obj.gender or "Unbekannt"
         st.write("Geschlecht:", gender)
+        st.write("Geburtsjahr", person_obj.date_of_birth)
     else:
         st.warning("Keine Person ausgewählt oder Person nicht gefunden.")
-    
-    st.write("Geburtsjahr",person_obj.date_of_birth )
 
 with tab2:
-    st.header("🫀 EKG-Datenanalyse")
+    # Personenauswahl
+    person_names = read_data.get_person_list()
+    selected_name = st.selectbox("Name der Versuchsperson", options=person_names, key="tab2_select")
+    person_obj = Person.load_by_name(selected_name)
 
+    st.header("🫀 EKG-Datenanalyse")
     if person_obj and person_obj.ekg_tests:
         ekg_tests = person_obj.ekg_tests
 
@@ -129,10 +126,9 @@ with tab2:
     else:
         st.info("Keine EKG-Daten für diese Person vorhanden.")
 
-
 with tab3:
-    st.header("🚴 Leistungstest-Auswertung")
 
+    st.header("🚴 Leistungstest-Auswertung")
     max_hr_input = st.number_input("Manuelle Eingabe: Max. Herzfrequenz (für Zonenanalyse)", min_value=0, max_value=250, step=1)
 
     if st.button("Absenden"):
@@ -166,19 +162,58 @@ with tab3:
                 st.error("CSV-Datei nicht gefunden. Überprüfen Sie den Pfad 'data/activities/activity.csv'")
             except Exception as e:
                 st.error(f"Fehler beim Verarbeiten der Daten: {e}")
+with tab4:
+    st.header("🏋️ Fit File Analyse")
+    # Hier KEINE Personenauswahl!
+    uploaded_fit_file = st.file_uploader("Lade ein FIT-File hoch", type=["fit"])
+    sportarten = ["Radfahren", "Laufen", "Schwimmen", "Sonstiges"]
+    selected_sport = st.selectbox("Sportart auswählen", options=sportarten)
+    if uploaded_fit_file is not None:
+        fit_df = read_fit_file.read_fit_file(uploaded_fit_file)
 
-    with tab4:
+        # Basisdaten
+        hr = np.array(fit_df['heart_rate']) if 'heart_rate' in fit_df else np.array([])
+        distance = np.array(fit_df['distance']) if 'distance' in fit_df else None
+        power = np.array(fit_df['power']) if 'power' in fit_df else None
+        altitude = np.array(fit_df['altitude']) if 'altitude' in fit_df else None
 
-        fit_file_path = 'data/fit_file/activity_test.fit'
-        fit_df = read_fit_file.read_fit_file(fit_file_path)
-        hr = np.array(fit_df['heart_rate'])
-        power = np.array(fit_df['power'])
-        altitude = np.array(fit_df['altitude'])
-        distance = np.array(fit_df['distance'])
-        st.write(f"Durchschnittliche Herzfrequenz im Workout: {np.mean(hr):.2f} bpm")
-        st.write(f"Maximale Herzfrequenz im Workout {np.max(hr)} bpm")
-        st.write(f"Durchschnittliche Power im Workout: {np.mean(power):.2f} W")
-        st.write(f"Maximale Power im Workout: {np.max(power):.2f} W")
-        st.write(f"Dinstanzr: {np.max(distance)} m")
+        if len(hr) > 0:
+            st.write(f"Durchschnittliche Herzfrequenz: {np.mean(hr):.2f} bpm")
+            st.write(f"Maximale Herzfrequenz: {np.max(hr)} bpm")
+        else:
+            st.info("Keine Herzfrequenzdaten im FIT-File gefunden.")
 
+        # Sportartspezifische Auswertung
+        if selected_sport == "Radfahren":
+            if power is not None and len(power) > 0:
+                st.write(f"Durchschnittliche Leistung: {np.mean(power):.2f} W")
+                st.write(f"Maximale Leistung: {np.max(power):.2f} W")
+            else:
+                st.info("Keine Leistungsdaten im FIT-File.")
+            if distance is not None and len(distance) > 0:
+                st.write(f"Gefahrene Distanz: {np.max(distance)/1000:.2f} km")
+        elif selected_sport == "Laufen":
+            if distance is not None and len(distance) > 0:
+                st.write(f"Gelaufene Distanz: {np.max(distance)/1000:.2f} km")
+            if altitude is not None and len(altitude) > 0:
+                st.write(f"Maximale Höhe: {np.max(altitude):.2f} m")
+        elif selected_sport == "Schwimmen":
+            if distance is not None and len(distance) > 0:
+                st.write(f"Geschwommene Distanz: {np.max(distance):.2f} m")
+            else:
+                st.info("Keine Distanzdaten im FIT-File.")
+        else:
+            st.write("Allgemeine Auswertung:")
+            if distance is not None and len(distance) > 0:
+                st.write(f"Distanz: {np.max(distance):.2f} m")
+            else:
+                st.info("Keine Distanzdaten im FIT-File.")
 
+        # Plot Herzfrequenzverlauf (optional)
+        if len(hr) > 0:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(y=hr, mode="lines", name="Herzfrequenz"))
+            fig.update_layout(title="Herzfrequenzverlauf", xaxis_title="Zeit (Index)", yaxis_title="Herzfrequenz (bpm)")
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Bitte lade zuerst ein FIT-File hoch.")

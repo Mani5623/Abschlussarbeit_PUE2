@@ -2,8 +2,8 @@ from fitparse import FitFile
 import numpy as np
 import pandas as pd
 
-def read_fit_file(path):
-    fitfile = FitFile(path)
+def read_fit_file(file):
+    fitfile = FitFile(file)
     times = []
     all_records = []
 
@@ -28,9 +28,3 @@ def read_fit_file(path):
     df['time_seconds'] = time  # Zeitspalte hinzufügen
 
     return df
-
-if __name__ == "__main__":
-    fit_file_path = 'data/fit_file/activity_test.fit'
-    df = read_fit_file(fit_file_path)
-    print(df.head)
-
