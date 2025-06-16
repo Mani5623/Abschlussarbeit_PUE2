@@ -38,26 +38,35 @@ class EKGdata:
 
         return peaks
 
-    def estimate_hr(self, sampling_rate_hz=1000):
+    def estimate_hr(self):
         if self.peaks is None:
-            # Standard Maximalpuls 220 falls nicht anders bekannt
             self.find_peaks(max_puls=220)
-        rr_intervals = np.diff(self.peaks) / sampling_rate_hz
+
+        time = self.df["Zeit in ms"].values
+        peak_times = time[self.peaks] / 1000  # Zeit in Sekunden
+        rr_intervals = np.diff(peak_times)    # Sekunden
+
         if len(rr_intervals) == 0:
             return 0
+
         avg_rr = np.mean(rr_intervals)
         heart_rate = 60 / avg_rr
         return round(heart_rate)
 
-    def get_instant_hr(self, sampling_rate_hz=1000):
-        """Berechnet die instantane Herzfrequenz (bpm) zwischen zwei Peaks (RR-Intervalle)."""
+    def get_instant_hr(self):
         if self.peaks is None:
             self.find_peaks(max_puls=220)
-        rr_intervals = np.diff(self.peaks) / sampling_rate_hz  # Zeit in Sekunden
+
+        time = self.df["Zeit in ms"].values
+        peak_times = time[self.peaks] / 1000  # Sekunden
+        rr_intervals = np.diff(peak_times)
+
         if len(rr_intervals) == 0:
             return np.array([])
+
         instant_hr = 60 / rr_intervals
         return instant_hr
+
 
     def plot_with_peaks(self, window_ms=5000):
         if self.peaks is None:
@@ -79,6 +88,71 @@ class EKGdata:
             )
         )
         return fig
+    
+    def min_hr(self):
+        """Gibt die minimale Herzfrequenz im Datensatz basierend auf RR-Intervallen zurück"""
+        instant_hr = self.get_instant_hr()
+        if len(instant_hr) == 0:
+            return 0
+        return round(np.min(instant_hr))
+
+    def hr_variability(self):
+        """Herzfrequenzvariabilität (Standardabweichung der RR-Intervalle in ms)"""
+        if self.peaks is None:
+            self.find_peaks()
+
+        time = self.df["Zeit in ms"].values
+        peak_times = time[self.peaks]
+        rr_intervals = np.diff(peak_times)  # in ms
+        if len(rr_intervals) == 0:
+            return 0
+        return round(np.std(rr_intervals), 2)
+
+    def rr_interval_avg(self):
+        """Durchschnitt der RR-Intervalle in ms"""
+        if self.peaks is None:
+            self.find_peaks()
+
+        time = self.df["Zeit in ms"].values
+        peak_times = time[self.peaks]
+        rr_intervals = np.diff(peak_times)
+        if len(rr_intervals) == 0:
+            return 0
+        return round(np.mean(rr_intervals), 2)
+
+    def pp_interval_avg(self):
+        """PP-Intervall Durchschnitt = RR bei normalem Sinusrhythmus"""
+        return self.rr_interval_avg()
+
+    def detect_irregularities(self, tolerance=0.1):
+        """Erkennt Unregelmäßigkeiten: RR und PP Abweichungen > tolerance"""
+        if self.peaks is None:
+            self.find_peaks()
+
+        time = self.df["Zeit in ms"].values
+        peak_times = time[self.peaks]
+        rr_intervals = np.diff(peak_times)
+
+        if len(rr_intervals) < 2:
+            return {"irregular_rr": False, "irregular_pp": False}
+
+        avg_rr = np.mean(rr_intervals)
+        deviations = np.abs(rr_intervals - avg_rr) / avg_rr
+        irregular = deviations > tolerance
+
+        return {
+            "irregular_rr": np.any(irregular),
+            "irregular_pp": np.any(irregular)  # identisch zu RR bei Sinusrhythmus
+        }
+
+    def qrs_analysis(self):
+        """
+        Placeholder: QRS-Analyse. 
+        Hier kannst du später QRS-Komplexe (Dauer, Form) analysieren, 
+        z.B. mit Wavelet-Transformation oder zusätzlicher Annotation.
+        """
+        return "QRS-Analyse nicht implementiert (benötigt komplexere Signalverarbeitung)"
+
 
 
 if __name__ == "__main__":
