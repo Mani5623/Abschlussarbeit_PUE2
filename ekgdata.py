@@ -13,6 +13,10 @@ class EKGdata:
         self.df = pd.read_csv(self.data_path, sep='\t', header=None, names=['Messwerte in mV', 'Zeit in ms'])
         self.peaks = None
 
+        time = self.df["Zeit in ms"].values
+        sampling_interval = np.median(np.diff(time))
+        self.sampling_rate = 1000 / sampling_interval 
+
     def plot_time_series(self):
         fig = px.line(self.df.head(2000), x="Zeit in ms", y="Messwerte in mV", title="EKG Zeitreihe")
         return fig
@@ -20,8 +24,7 @@ class EKGdata:
     def find_peaks(self, max_puls=220, height=None):
         signal = self.df["Messwerte in mV"]
         time = self.df["Zeit in ms"]
-        sampling_interval = np.median(np.diff(time))  # ms pro Messpunkt
-        sampling_rate = 1000 / sampling_interval       # Hz
+        sampling_interval = 1000 / self.sampling_rate
 
         # Mindestabstand in Samples basierend auf Maximalpuls
         min_distance_ms = 60000 / max_puls              # ms
@@ -146,12 +149,27 @@ class EKGdata:
         }
 
     def qrs_analysis(self):
-        """
-        Placeholder: QRS-Analyse. 
-        Hier kannst du später QRS-Komplexe (Dauer, Form) analysieren, 
-        z.B. mit Wavelet-Transformation oder zusätzlicher Annotation.
-        """
-        return "QRS-Analyse nicht implementiert (benötigt komplexere Signalverarbeitung)"
+        if self.peaks is None:
+            self.find_peaks()
+
+        time = self.df["Zeit in ms"].values
+        peak_times = time[self.peaks]
+        rr_intervals = np.diff(peak_times)  # in ms
+
+        if len(rr_intervals) == 0:
+            return {
+                "message": "Keine QRS-Analyse möglich: zu wenige Peaks erkannt",
+                "rr_avg_ms": None
+            }
+
+        rr_avg = np.mean(rr_intervals)  # ### NEU ###
+
+        return {  # ### NEU ###
+            "rr_avg_ms": round(rr_avg, 2),
+            "rr_std_ms": round(np.std(rr_intervals), 2),
+            "message": "Basis-QRS-Analyse durchgeführt (nur RR-Statistik)"
+        }
+
 
 
 

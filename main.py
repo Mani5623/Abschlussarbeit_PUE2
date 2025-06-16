@@ -10,6 +10,7 @@ from PIL import Image
 from person import Person
 from ekgdata import EKGdata
 import read_fit_file
+import heartpy as hp
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
 
@@ -80,6 +81,19 @@ with tab2:
         st.write(f"Maximale Herzfrequenz in EKG: {max_instant_hr:.1f} bpm")
         st.write(f"Minimale Herzfrequenz in EKG: {min_instant_hr:.1f} bpm")
         st.write(f"Herzfrequenz-Variabilität: {hr_variability_ms} ms")
+
+        # QRS-Komplex-Analyse mit heartpy
+        try:
+            signal = ekg.df["Messwerte in mV"].values  # EKG-Werte aus DataFrame holen
+            wd, m = hp.process(signal, sample_rate=ekg.sampling_rate)
+
+            st.subheader("QRS-Analyse (heartpy)")
+            st.write(f"Herzfrequenz (heartpy): {m['bpm']:.1f} bpm")
+            st.write(f"Durchschnittliches RR-Intervall (heartpy): {m['rr_avg']:.3f} s")
+            st.write(f"Anzahl der QRS-Komplexe: {len(wd['peaklist'])}")
+        except Exception as e:
+            st.error(f"Fehler bei QRS-Analyse: {e}")
+
 
         df = ekg.df
 

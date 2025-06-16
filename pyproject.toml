@@ -5,7 +5,7 @@ description = "Default template for PDM package"
 authors = [
     {name = "Mani5623", email = "hm9703@mci4me.at"},
 ]
-dependencies = ["numpy>=2.3.0", "pandas>=2.3.0", "streamlit>=1.45.1", "plotly>=6.1.2", "scipy>=1.15.3", "fitparse>=1.2.0", "gpxpy>=1.6.2", "folium>=0.19.7", "streamlit-folium>=0.25.0"]
+dependencies = ["numpy>=2.3.0", "pandas>=2.3.0", "streamlit>=1.45.1", "plotly>=6.1.2", "scipy>=1.15.3", "fitparse>=1.2.0", "gpxpy>=1.6.2", "folium>=0.19.7", "streamlit-folium>=0.25.0", "heartpy>=1.2.7", "setuptools>=80.9.0"]
 requires-python = "==3.13.*"
 readme = "README.md"
 license = {text = "MIT"}
