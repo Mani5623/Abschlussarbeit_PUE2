@@ -162,13 +162,8 @@ with tab3:
             fig = read_pandas.make_plot(df, zones)
             st.plotly_chart(fig, use_container_width=True)
 
-            person = {
-                'weight': weight,
-                'age': age,
-                'resting_hr': resting_hr
-            }
-
-            results = read_pandas.leistungsanalyse(df, person)
+            # Leistungsanalyse mit Einzelparametern
+            results = read_pandas.leistungsanalyse(df, weight, age, resting_hr)
 
             st.subheader("📊 Analyseergebnisse")
             st.write(f"Durchschnittliche Herzfrequenz: {results['avg_hr']:.1f} bpm")
@@ -178,7 +173,11 @@ with tab3:
             st.write(f"Maximale Leistung: {results['max_power']} Watt")
             st.write(f"Gesamtdauer: {results['total_time_min']:.1f} Minuten")
             st.write(f"Geschätzte verbrannte Kalorien: {results['calories']:.0f} kcal")
-            st.write(f"Geschätzter VO2max: {results['vo2max_est']:.1f}")
+
+            if results['vo2max_est'] is not None:
+                st.write(f"Geschätzter VO2max: {results['vo2max_est']:.1f} ml/kg/min")
+            else:
+                st.write("VO2max konnte nicht geschätzt werden.")
 
             zone_counts = df['Zone'].value_counts().sort_index()
             zone_minutes = zone_counts / 60
