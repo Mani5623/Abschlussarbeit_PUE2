@@ -67,6 +67,8 @@ with tab2:
         instant_hr = ekg.get_instant_hr() 
 
         max_instant_hr = instant_hr.max() if len(instant_hr) > 0 else 0
+        min_instant_hr = instant_hr.min() if len(instant_hr) > 0 else 0
+        hr_variability = instant_hr.std() if len(instant_hr) > 0 else 0
         age = person_obj.calc_age()
 
         # Anzeige der Infos
@@ -76,6 +78,8 @@ with tab2:
         st.write(f"Geschätzte Herzfrequenz (durchschnittlich): {estimated_hr} bpm")
         st.write(f"Geschätzter Maximalpuls: {max_hr} bpm")
         st.write(f"Maximale Herzfrequenz in EKG: {max_instant_hr:.1f} bpm")
+        st.write(f"Minimale Herzfrequenz in EKG: {min_instant_hr:.1f} bpm")
+        st.write(f"Herzfrequenz-Variabilität (SD): {hr_variability:.2f} bpm")
 
         df = ekg.df
 
@@ -162,6 +166,7 @@ with tab3:
                 st.error("CSV-Datei nicht gefunden. Überprüfen Sie den Pfad 'data/activities/activity.csv'")
             except Exception as e:
                 st.error(f"Fehler beim Verarbeiten der Daten: {e}")
+
 with tab4:
     st.header("🏋️ Fit File Analyse")
     uploaded_fit_file = st.file_uploader("Lade ein FIT-File hoch", type=["fit"])
@@ -171,34 +176,29 @@ with tab4:
 
     if uploaded_fit_file is not None and abschicken:
         df = read_fit_file.read_fit_file(uploaded_fit_file)
+        duration_hours = read_fit_file.calculate_workout_duration_hours(df)
 
-        # Sportartspezifische Auswertung (Beispiel)
+        # Sportartspezifische Auswertung
         if selected_sport == "Radfahren":
-            st.subheader("🚴 Radfahren-Auswertung")
-            # Beispiel: Durchschnittliche Leistung, Distanz etc.
             if 'power' in df and len(df['power']) > 0:
                 st.write(f"Durchschnittliche Leistung: {df['power'].mean():.2f} W")
             if 'distance' in df and len(df['distance']) > 0:
                 st.write(f"Gefahrene Distanz: {df['distance'].max()/1000:.2f} km")
         elif selected_sport == "Laufen":
-            st.subheader("🏃 Lauf-Auswertung")
             if 'distance' in df and len(df['distance']) > 0:
                 st.write(f"Gelaufene Distanz: {df['distance'].max()/1000:.2f} km")
         elif selected_sport == "Schwimmen":
-            st.subheader("🏊 Schwimmen-Auswertung")
             if 'distance' in df and len(df['distance']) > 0:
                 st.write(f"Geschwommene Distanz: {df['distance'].max():.2f} m")
         else:
-            st.subheader("Allgemeine Auswertung")
             if 'distance' in df and len(df['distance']) > 0:
                 st.write(f"Distanz: {df['distance'].max():.2f} m")
 
-        # Plots
-        fig_hr = read_fit_file.plot_heart_rate(df)
+        fig_hr = read_fit_file.plot_heart_rate(df, duration_hours)
         if fig_hr:
             st.plotly_chart(fig_hr, use_container_width=True)
 
-        fig_alt = read_fit_file.plot_altitude(df)
+        fig_alt = read_fit_file.plot_altitude(df, duration_hours)
         if fig_alt:
             st.plotly_chart(fig_alt, use_container_width=True)
 
@@ -209,3 +209,4 @@ with tab4:
         st.info("Bitte wählen Sie die Sportart und klicken Sie auf 'Abschicken'.")
     else:
         st.info("Bitte laden Sie zuerst ein FIT-File hoch.")
+

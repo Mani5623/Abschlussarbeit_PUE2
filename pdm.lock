@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:1ade968b088fe6146799652cae0fcc69da9ad78d8e040e28afb779ccc01f4dba"
+content_hash = "sha256:17f93f3292678199f47b25f670f9eff28a1f5b40ae496c2fd98f6552bd473ebf"
 
 [[metadata.targets]]
 requires_python = "==3.13.*"
@@ -158,6 +158,17 @@ dependencies = [
 files = [
     {file = "GitPython-3.1.44-py3-none-any.whl", hash = "sha256:9e0e10cda9bed1ee64bc9a6de50e7e38a9c9943241cd7f585f6df3ed28011110"},
     {file = "gitpython-3.1.44.tar.gz", hash = "sha256:c87e30b26253bf5418b01b0660f818967f3c503193838337fe5e573331249269"},
+]
+
+[[package]]
+name = "gpxpy"
+version = "1.6.2"
+requires_python = ">=3.6"
+summary = "GPX file parser and GPS track manipulation library"
+groups = ["default"]
+files = [
+    {file = "gpxpy-1.6.2-py3-none-any.whl", hash = "sha256:289bc2d80f116c988d0a1e763fda22838f83005573ece2bbc6521817b26fb40a"},
+    {file = "gpxpy-1.6.2.tar.gz", hash = "sha256:a72c484b97ec42b80834353b029cc8ee1b79f0ffca1179b2210bb3baf26c01ae"},
 ]
 
 [[package]]
