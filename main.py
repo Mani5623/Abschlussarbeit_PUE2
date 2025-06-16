@@ -145,41 +145,57 @@ with tab2:
         st.info("Keine EKG-Daten für diese Person vorhanden.")
 
 with tab3:
-
     st.header("🚴 Leistungstest-Auswertung")
-    max_hr_input = st.number_input("Manuelle Eingabe: Max. Herzfrequenz (für Zonenanalyse)", min_value=0, max_value=250, step=1)
 
-    if st.button("Absenden"):
-        if max_hr_input <= 0:
-            st.warning("Bitte geben Sie eine gültige maximale Herzfrequenz ein.")
-        else:
-            try:
-                df = read_pandas.read_my_csv()
-                required_columns = ['HeartRate', 'PowerOriginal']
-                missing_columns = [col for col in required_columns if col not in df.columns]
-                if missing_columns:
-                    st.error(f"Fehlende Spalten in der CSV-Datei: {missing_columns}")
-                else:
-                    zones = read_pandas.get_zone_limit(max_hr_input)
-                    df['Zone'] = df['HeartRate'].apply(lambda x: read_pandas.assign_zone(x, zones))
-                    fig = read_pandas.make_plot(df, zones)
-                    st.plotly_chart(fig, use_container_width=True)
-                    zone_counts = df['Zone'].value_counts().sort_index()
-                    zone_minutes = zone_counts / 60
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.subheader("🕒 Verweildauer in Herzfrequenzzonen")
-                        for zone, minutes in zone_minutes.items():
-                            st.write(f"**{zone}**: {minutes:.1f} Minuten")
-                    with col2:
-                        st.subheader("⚡ Durchschnittliche Leistung je Zone")
-                        avg_power_per_zone = df.groupby('Zone')['PowerOriginal'].mean()
-                        for zone, avg_power in avg_power_per_zone.items():
-                            st.write(f"**{zone}**: {avg_power:.1f} Watt")
-            except FileNotFoundError:
-                st.error("CSV-Datei nicht gefunden. Überprüfen Sie den Pfad 'data/activities/activity.csv'")
-            except Exception as e:
-                st.error(f"Fehler beim Verarbeiten der Daten: {e}")
+    weight = st.number_input("Gewicht (kg)", min_value=30, max_value=200, value=70)
+    age = st.number_input("Alter (Jahre)", min_value=10, max_value=120, value=30)
+    resting_hr = st.number_input("Ruhepuls (bpm)", min_value=30, max_value=120, value=60)
+    max_hr_input = st.number_input("Maximale Herzfrequenz (bpm) für Zonenanalyse", min_value=50, max_value=220, value=180)
+
+    if st.button("Auswertung starten"):
+        try:
+            df = read_pandas.read_my_csv()
+
+            zones = read_pandas.get_zone_limit(max_hr_input)
+            df['Zone'] = df['HeartRate'].apply(lambda x: read_pandas.assign_zone(x, zones))
+
+            fig = read_pandas.make_plot(df, zones)
+            st.plotly_chart(fig, use_container_width=True)
+
+            person = {
+                'weight': weight,
+                'age': age,
+                'resting_hr': resting_hr
+            }
+
+            results = read_pandas.leistungsanalyse(df, person)
+
+            st.subheader("📊 Analyseergebnisse")
+            st.write(f"Durchschnittliche Herzfrequenz: {results['avg_hr']:.1f} bpm")
+            st.write(f"Maximale Herzfrequenz: {results['max_hr']} bpm")
+            st.write(f"Minimale Herzfrequenz: {results['min_hr']} bpm")
+            st.write(f"Durchschnittliche Leistung: {results['avg_power']:.1f} Watt")
+            st.write(f"Maximale Leistung: {results['max_power']} Watt")
+            st.write(f"Gesamtdauer: {results['total_time_min']:.1f} Minuten")
+            st.write(f"Geschätzte verbrannte Kalorien: {results['calories']:.0f} kcal")
+            st.write(f"Geschätzter VO2max: {results['vo2max_est']:.1f}")
+
+            zone_counts = df['Zone'].value_counts().sort_index()
+            zone_minutes = zone_counts / 60
+            st.subheader("🕒 Zeit in Herzfrequenzzonen (Minuten)")
+            for zone, minutes in zone_minutes.items():
+                st.write(f"{zone}: {minutes:.1f} min")
+
+            avg_power_per_zone = df.groupby('Zone')['PowerOriginal'].mean()
+            st.subheader("⚡ Durchschnittliche Leistung je Zone")
+            for zone, avg_power in avg_power_per_zone.items():
+                st.write(f"{zone}: {avg_power:.1f} Watt")
+
+        except FileNotFoundError:
+            st.error("Datei 'activity.csv' nicht gefunden.")
+        except Exception as e:
+            st.error(f"Fehler bei der Auswertung: {e}")
+
 
 with tab4:
     st.header("🏋️ Fit File Analyse")

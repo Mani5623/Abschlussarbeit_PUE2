@@ -71,6 +71,19 @@ def make_plot(df, zones):
     
     return fig
 
+def leistungsanalyse(df, person):
+    results = {}
+    results['avg_hr'] = df['HeartRate'].mean()
+    results['max_hr'] = df['HeartRate'].max()
+    results['min_hr'] = df['HeartRate'].min()
+    results['avg_power'] = df['PowerOriginal'].mean()
+    results['max_power'] = df['PowerOriginal'].max()
+    results['total_time_min'] = len(df) / 60
+    kcal = (results['avg_hr'] * 0.6309 + person['weight'] * 0.1988 + person['age'] * 0.2017 - 55.0969) * results['total_time_min'] / 4.184
+    results['calories'] = kcal
+    results['vo2max_est'] = 15.3 * (results['max_hr'] / person['resting_hr'])
+    return results
+
 #%% Test - Nur ausführen wenn das Modul direkt gestartet wird
 if __name__ == "__main__":
     df = read_my_csv()

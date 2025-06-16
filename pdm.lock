@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:17f93f3292678199f47b25f670f9eff28a1f5b40ae496c2fd98f6552bd473ebf"
+content_hash = "sha256:cc65d7fe935af84e38bd479a9fb4002fbf7f55df5139c7dfb37214446bb5682d"
 
 [[metadata.targets]]
 requires_python = "==3.13.*"
@@ -48,6 +48,20 @@ groups = ["default"]
 files = [
     {file = "blinker-1.9.0-py3-none-any.whl", hash = "sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc"},
     {file = "blinker-1.9.0.tar.gz", hash = "sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf"},
+]
+
+[[package]]
+name = "branca"
+version = "0.8.1"
+requires_python = ">=3.7"
+summary = "Generate complex HTML+JS pages with Python"
+groups = ["default"]
+dependencies = [
+    "jinja2>=3",
+]
+files = [
+    {file = "branca-0.8.1-py3-none-any.whl", hash = "sha256:d29c5fab31f7c21a92e34bf3f854234e29fecdcf5d2df306b616f20d816be425"},
+    {file = "branca-0.8.1.tar.gz", hash = "sha256:ac397c2d79bd13af0d04193b26d5ed17031d27609a7f1fab50c438b8ae712390"},
 ]
 
 [[package]]
@@ -129,6 +143,24 @@ summary = "Python library to parse ANT/Garmin .FIT files"
 groups = ["default"]
 files = [
     {file = "fitparse-1.2.0.tar.gz", hash = "sha256:2d691022452dea6dabad13cc6e017ca467fe8a3a895cd3ac67a50a7bb716b4a9"},
+]
+
+[[package]]
+name = "folium"
+version = "0.19.7"
+requires_python = ">=3.9"
+summary = "Make beautiful maps with Leaflet.js & Python"
+groups = ["default"]
+dependencies = [
+    "branca>=0.6.0",
+    "jinja2>=2.9",
+    "numpy",
+    "requests",
+    "xyzservices",
+]
+files = [
+    {file = "folium-0.19.7-py2.py3-none-any.whl", hash = "sha256:4f60efffd0a97fc22d94cba75cfa0bf954a87b828d7f2b878059e55d38c51c40"},
+    {file = "folium-0.19.7.tar.gz", hash = "sha256:cf256a1e38441e7a8e01977bceeba34f86fd68745d7d7e490ccbecc79dc0d388"},
 ]
 
 [[package]]
@@ -629,6 +661,23 @@ files = [
 ]
 
 [[package]]
+name = "streamlit-folium"
+version = "0.25.0"
+requires_python = ">=3.9"
+summary = "Render Folium objects in Streamlit"
+groups = ["default"]
+dependencies = [
+    "branca",
+    "folium!=0.15.0,>=0.13",
+    "jinja2",
+    "streamlit>=1.35.0",
+]
+files = [
+    {file = "streamlit_folium-0.25.0-py3-none-any.whl", hash = "sha256:48d5f05ea3e9005c00c0b2fe5a9a3086df30d04e1a20c3630a6c9df183ec590a"},
+    {file = "streamlit_folium-0.25.0.tar.gz", hash = "sha256:f32eb51c1958705030e15045a38edaf9c046d6de5e6587e64190251466a4a006"},
+]
+
+[[package]]
 name = "tenacity"
 version = "9.1.2"
 requires_python = ">=3.9"
@@ -726,4 +775,15 @@ files = [
     {file = "watchdog-6.0.0-py3-none-win_amd64.whl", hash = "sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680"},
     {file = "watchdog-6.0.0-py3-none-win_ia64.whl", hash = "sha256:a1914259fa9e1454315171103c6a30961236f508b9b623eae470268bbcc6a22f"},
     {file = "watchdog-6.0.0.tar.gz", hash = "sha256:9ddf7c82fda3ae8e24decda1338ede66e1c99883db93711d8fb941eaa2d8c282"},
+]
+
+[[package]]
+name = "xyzservices"
+version = "2025.4.0"
+requires_python = ">=3.8"
+summary = "Source of XYZ tiles providers"
+groups = ["default"]
+files = [
+    {file = "xyzservices-2025.4.0-py3-none-any.whl", hash = "sha256:8d4db9a59213ccb4ce1cf70210584f30b10795bff47627cdfb862b39ff6e10c9"},
+    {file = "xyzservices-2025.4.0.tar.gz", hash = "sha256:6fe764713648fac53450fbc61a3c366cb6ae5335a1b2ae0c3796b495de3709d8"},
 ]
