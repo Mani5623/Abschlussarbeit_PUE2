@@ -83,6 +83,20 @@ with tab2:
 
         df = ekg.df
 
+        peak_times_ms = df.loc[df["Peak"] == 1, "Zeit in ms"].values
+        if len(peak_times_ms) >= 2:
+            rr_intervals_s = np.diff(peak_times_ms) / 1000
+            rr_avg = rr_intervals_s.mean()
+            st.write(f"Durchschnittliches RR-Intervall: {rr_avg:.2f} s")  
+            st.write(f"Durchschnittliches PP-Intervall: {rr_avg:.2f} s")  
+            
+            rr_deviation = np.abs(rr_intervals_s / rr_avg - 1)
+            num_irregular_rr = (rr_deviation > 0.10).sum()
+            st.write(f"Unregelmäßige RR-Intervalle (>10 % Abweichung): {num_irregular_rr} von {len(rr_intervals_s)}")  # ### NEU ###
+            st.write(f"Unregelmäßige PP-Intervalle (>10 % Abweichung): {num_irregular_rr} von {len(rr_intervals_s)}")  # ### NEU ###
+        else:
+            st.write("Nicht genügend Peaks für RR-/PP-Analyse.")
+
         # EKG-Signal mit Peaks plotten (in Minuten)
         fig_ekg = go.Figure()
         fig_ekg.add_trace(go.Scatter(x=df["Zeit in ms"]/60000, y=df["Messwerte in mV"], mode='lines', name='EKG Signal'))
