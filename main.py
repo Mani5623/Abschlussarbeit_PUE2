@@ -164,56 +164,48 @@ with tab3:
                 st.error(f"Fehler beim Verarbeiten der Daten: {e}")
 with tab4:
     st.header("🏋️ Fit File Analyse")
-    # Hier KEINE Personenauswahl!
     uploaded_fit_file = st.file_uploader("Lade ein FIT-File hoch", type=["fit"])
     sportarten = ["Radfahren", "Laufen", "Schwimmen", "Sonstiges"]
     selected_sport = st.selectbox("Sportart auswählen", options=sportarten)
-    if uploaded_fit_file is not None:
-        fit_df = read_fit_file.read_fit_file(uploaded_fit_file)
+    abschicken = st.button("Abschicken")
 
-        # Basisdaten
-        hr = np.array(fit_df['heart_rate']) if 'heart_rate' in fit_df else np.array([])
-        distance = np.array(fit_df['distance']) if 'distance' in fit_df else None
-        power = np.array(fit_df['power']) if 'power' in fit_df else None
-        altitude = np.array(fit_df['altitude']) if 'altitude' in fit_df else None
+    if uploaded_fit_file is not None and abschicken:
+        df = read_fit_file.read_fit_file(uploaded_fit_file)
 
-        if len(hr) > 0:
-            st.write(f"Durchschnittliche Herzfrequenz: {np.mean(hr):.2f} bpm")
-            st.write(f"Maximale Herzfrequenz: {np.max(hr)} bpm")
-        else:
-            st.info("Keine Herzfrequenzdaten im FIT-File gefunden.")
-
-        # Sportartspezifische Auswertung
+        # Sportartspezifische Auswertung (Beispiel)
         if selected_sport == "Radfahren":
-            if power is not None and len(power) > 0:
-                st.write(f"Durchschnittliche Leistung: {np.mean(power):.2f} W")
-                st.write(f"Maximale Leistung: {np.max(power):.2f} W")
-            else:
-                st.info("Keine Leistungsdaten im FIT-File.")
-            if distance is not None and len(distance) > 0:
-                st.write(f"Gefahrene Distanz: {np.max(distance)/1000:.2f} km")
+            st.subheader("🚴 Radfahren-Auswertung")
+            # Beispiel: Durchschnittliche Leistung, Distanz etc.
+            if 'power' in df and len(df['power']) > 0:
+                st.write(f"Durchschnittliche Leistung: {df['power'].mean():.2f} W")
+            if 'distance' in df and len(df['distance']) > 0:
+                st.write(f"Gefahrene Distanz: {df['distance'].max()/1000:.2f} km")
         elif selected_sport == "Laufen":
-            if distance is not None and len(distance) > 0:
-                st.write(f"Gelaufene Distanz: {np.max(distance)/1000:.2f} km")
-            if altitude is not None and len(altitude) > 0:
-                st.write(f"Maximale Höhe: {np.max(altitude):.2f} m")
+            st.subheader("🏃 Lauf-Auswertung")
+            if 'distance' in df and len(df['distance']) > 0:
+                st.write(f"Gelaufene Distanz: {df['distance'].max()/1000:.2f} km")
         elif selected_sport == "Schwimmen":
-            if distance is not None and len(distance) > 0:
-                st.write(f"Geschwommene Distanz: {np.max(distance):.2f} m")
-            else:
-                st.info("Keine Distanzdaten im FIT-File.")
+            st.subheader("🏊 Schwimmen-Auswertung")
+            if 'distance' in df and len(df['distance']) > 0:
+                st.write(f"Geschwommene Distanz: {df['distance'].max():.2f} m")
         else:
-            st.write("Allgemeine Auswertung:")
-            if distance is not None and len(distance) > 0:
-                st.write(f"Distanz: {np.max(distance):.2f} m")
-            else:
-                st.info("Keine Distanzdaten im FIT-File.")
+            st.subheader("Allgemeine Auswertung")
+            if 'distance' in df and len(df['distance']) > 0:
+                st.write(f"Distanz: {df['distance'].max():.2f} m")
 
-        # Plot Herzfrequenzverlauf (optional)
-        if len(hr) > 0:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(y=hr, mode="lines", name="Herzfrequenz"))
-            fig.update_layout(title="Herzfrequenzverlauf", xaxis_title="Zeit (Index)", yaxis_title="Herzfrequenz (bpm)")
-            st.plotly_chart(fig, use_container_width=True)
+        # Plots
+        fig_hr = read_fit_file.plot_heart_rate(df)
+        if fig_hr:
+            st.plotly_chart(fig_hr, use_container_width=True)
+
+        fig_alt = read_fit_file.plot_altitude(df)
+        if fig_alt:
+            st.plotly_chart(fig_alt, use_container_width=True)
+
+        fig_gpx = read_fit_file.plot_gpx(df)
+        if fig_gpx:
+            st.plotly_chart(fig_gpx, use_container_width=True)
+    elif uploaded_fit_file is not None and not abschicken:
+        st.info("Bitte wählen Sie die Sportart und klicken Sie auf 'Abschicken'.")
     else:
-        st.info("Bitte lade zuerst ein FIT-File hoch.")
+        st.info("Bitte laden Sie zuerst ein FIT-File hoch.")
