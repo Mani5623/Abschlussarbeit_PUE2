@@ -69,53 +69,34 @@ def plot_altitude(df, duration_hours):
         return fig
     return None
 
+def get_lat_lon(df):
+    # Nutze enhanced_* wenn vorhanden (bereits Dezimalgrad!)
+    if 'enhanced_position_lat' in df and 'enhanced_position_long' in df:
+        lat = df['enhanced_position_lat']
+        lon = df['enhanced_position_long']
+    elif 'position_lat' in df and 'position_long' in df:
+        lat = df['position_lat'] / 1e7
+        lon = df['position_long'] / 1e7
+    else:
+        return None, None
+    mask = (~pd.isnull(lat)) & (~pd.isnull(lon)) & (lat != 0) & (lon != 0)
+    return lat[mask], lon[mask]
 
 def plot_gpx(df):
-    # Prüfen, ob die Spalten existieren
-    if 'position_lat' not in df or 'position_long' not in df:
+    lat, lon = get_lat_lon(df)
+    if lat is None or lon is None or len(lat) < 2:
         return None
 
-    # Nach Zeit sortieren, falls möglich
-    if 'time_seconds' in df:
-        df = df.sort_values('time_seconds')
-    elif 'timestamp' in df:
-        df = df.sort_values('timestamp')
-
-    # Rohwerte in Grad umwandeln und ungültige Werte filtern
-    latitude = df['position_lat'].to_numpy() / 1e7
-    longitude = df['position_long'].to_numpy() / 1e7
-
-    # Nur sinnvolle Koordinaten behalten (keine NaN, keine 0)
-    mask = (
-        (~pd.isnull(latitude)) & (~pd.isnull(longitude)) &
-        (latitude != 0) & (longitude != 0)
-    )
-    latitude = latitude[mask]
-    longitude = longitude[mask]
-
-    if len(latitude) < 2 or len(longitude) < 2:
-        return None
-
-    # GPX-Objekt mit gpxpy erstellen (optional, für spätere Analysen)
-    gpx = gpxpy.gpx.GPX()
-    gpx_track = gpxpy.gpx.GPXTrack()
-    gpx.tracks.append(gpx_track)
-    gpx_segment = gpxpy.gpx.GPXTrackSegment()
-    gpx_track.segments.append(gpx_segment)
-    for lat, lon in zip(latitude, longitude):
-        gpx_segment.points.append(gpxpy.gpx.GPXTrackPoint(lat, lon))
-
-    # Plotly-Plot erzeugen
     fig = go.Figure()
     fig.add_trace(go.Scattergeo(
-        lat=latitude,
-        lon=longitude,
+        lat=lat,
+        lon=lon,
         mode='lines+markers',
         line=dict(width=2, color='blue'),
         marker=dict(size=5, color='red')
     ))
     fig.update_layout(
-        title='GPX Route (optimiert)',
+        title='GPX Route',
         geo=dict(
             projection_type='mercator',
             showland=True,
@@ -124,8 +105,6 @@ def plot_gpx(df):
         )
     )
     return fig
-
-
 
 # Optional: Testlauf
 if __name__ == "__main__":
