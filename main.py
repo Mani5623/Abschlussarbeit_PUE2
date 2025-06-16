@@ -68,7 +68,7 @@ with tab2:
 
         max_instant_hr = instant_hr.max() if len(instant_hr) > 0 else 0
         min_instant_hr = instant_hr.min() if len(instant_hr) > 0 else 0
-        hr_variability = instant_hr.std() if len(instant_hr) > 0 else 0
+        hr_variability_ms = ekg.hr_variability()
         age = person_obj.calc_age()
 
         # Anzeige der Infos
@@ -79,7 +79,7 @@ with tab2:
         st.write(f"Geschätzter Maximalpuls: {max_hr} bpm")
         st.write(f"Maximale Herzfrequenz in EKG: {max_instant_hr:.1f} bpm")
         st.write(f"Minimale Herzfrequenz in EKG: {min_instant_hr:.1f} bpm")
-        st.write(f"Herzfrequenz-Variabilität (SD): {hr_variability:.2f} bpm")
+        st.write(f"Herzfrequenz-Variabilität: {hr_variability_ms} ms")
 
         df = ekg.df
 
