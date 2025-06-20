@@ -11,7 +11,7 @@ from person import Person
 from ekgdata import EKGdata
 from streamlit_folium import st_folium
 import read_fit_file
-import heartpy as hp
+import neurokit2 as nk
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
 
@@ -41,6 +41,7 @@ with tab1:
         st.write("Geburtsjahr", person_obj.date_of_birth)
     else:
         st.warning("Keine Person ausgewählt oder Person nicht gefunden.")
+
 
 with tab2:
     # Personenauswahl
@@ -76,109 +77,154 @@ with tab2:
         st.write(f"Minimale Herzfrequenz in EKG: {min_instant_hr:.1f} bpm")
         st.write(f"Herzfrequenz-Variabilität: {hr_variability_ms} ms")
 
-        # QRS-Komplex-Analyse mit HeartPy, stille Fehlerbehandlung
+        # NeuroKit2 Analyse
         try:
+            import neurokit2 as nk
             signal = ekg.df["Messwerte in mV"].values
-            wd, m = hp.process(signal, sample_rate=ekg.sampling_rate)
+            sampling_rate = ekg.sampling_rate
 
-            rr_avg = m.get('rr_avg', None)
-            if rr_avg is None:
-                raise ValueError("Kein RR-Intervall von HeartPy")
+            processed, info = nk.ecg_process(signal, sampling_rate=sampling_rate)
+            rpeaks = info["ECG_R_Peaks"]
+            hr = nk.ecg_rate(rpeaks, sampling_rate=sampling_rate, desired_length=len(signal))
+            rr_intervals = np.diff(rpeaks) / sampling_rate
 
-            qrs_peak_count = len(wd['peaklist'])
+            hrv_time = nk.hrv_time(rpeaks, sampling_rate=sampling_rate, show=False)
+            hrv_freq = nk.hrv_frequency(rpeaks, sampling_rate=sampling_rate, show=False)
 
-        except Exception:
-            peak_times_ms = ekg.df.loc[ekg.df["Peak"] == 1, "Zeit in ms"].values
-            if len(peak_times_ms) >= 2:
-                rr_intervals_s = np.diff(peak_times_ms) / 1000
-                rr_avg = rr_intervals_s.mean()
-                qrs_peak_count = len(peak_times_ms)
+            st.subheader("QRS-Komplexe & RR-Intervalle")
+            st.write(f"Anzahl der R-Peaks: {len(rpeaks)}")
+            if len(rr_intervals) > 0:
+                st.write(f"Durchschnittliches RR-Intervall: {np.mean(rr_intervals):.3f} s")
             else:
-                rr_avg = None
-                qrs_peak_count = 0
+                st.write("Keine RR-Intervalle gefunden.")
 
-        if rr_avg is not None and qrs_peak_count > 0:
-            st.subheader("QRS-Analyse")
-            st.write(f"Anzahl der QRS-Komplexe: {qrs_peak_count}")
-            st.write(f"Durchschnittliches RR-Intervall: {rr_avg:.3f} s")
+            st.subheader("Herzfrequenz (bpm)")
+            st.write(f"Durchschnittliche Herzfrequenz (NeuroKit): {np.mean(hr):.1f} bpm")
+            st.write(f"Maximale Herzfrequenz (NeuroKit): {np.max(hr):.1f} bpm")
+            st.write(f"Minimale Herzfrequenz (NeuroKit): {np.min(hr):.1f} bpm")
 
-            df = ekg.df
-            peak_times_ms = df.loc[df["Peak"] == 1, "Zeit in ms"].values
+            # Dynamische Interpretation
+            def interpret_hrv(hrv_time_dict, hrv_freq_dict):
+                interpretations = []
 
-            if len(peak_times_ms) >= 2:
-                rr_intervals_s = np.diff(peak_times_ms) / 1000
-                rr_avg = rr_intervals_s.mean()
-
-                # PP-Intervalle: hier identisch mit RR, falls keine P-Peaks vorhanden
-                pp_intervals_s = rr_intervals_s
-                pp_avg = pp_intervals_s.mean()
-
-                st.write(f"Durchschnittliches PP-Intervall: {pp_avg:.3f} s")
-
-                rr_deviation = np.abs(rr_intervals_s / rr_avg - 1)
-                irregular_indices = np.where(rr_deviation > 0.10)[0]
-
-                if len(irregular_indices) > 0:
-                    with st.expander(f"Unregelmäßige RR-Intervalle (>10 % Abweichung): {len(irregular_indices)} von {len(rr_intervals_s)} anzeigen"):
-                        for idx in irregular_indices:
-                            st.write(f"Intervall {idx} – Dauer: {rr_intervals_s[idx]:.3f} s, Abweichung: {rr_deviation[idx]*100:.1f}%")
+                sdnn = hrv_time_dict.get('HRV_SDNN', 0)
+                if sdnn > 50:
+                    interpretations.append("✅ SDNN ist hoch – gute Gesamt-HRV, gesundes autonomes Nervensystem.")
+                elif 30 <= sdnn <= 50:
+                    interpretations.append("⚠️ SDNN ist mittel – HRV ist moderat, evtl. leichte Belastung vorhanden.")
                 else:
-                    st.write("Keine unregelmäßigen RR-Intervalle gefunden.")
+                    interpretations.append("❌ SDNN ist niedrig – mögliche Belastung, Stress oder Überlastung.")
 
-                if len(irregular_indices) > 0:
-                    with st.expander(f"Unregelmäßige PP-Intervalle (>10 % Abweichung): {len(irregular_indices)} von {len(pp_intervals_s)} anzeigen"):
-                        for idx in irregular_indices:
-                            st.write(f"Intervall {idx} – Dauer: {pp_intervals_s[idx]:.3f} s, Abweichung: {rr_deviation[idx]*100:.1f}%")
+                rmssd = hrv_time_dict.get('HRV_RMSSD', 0)
+                if rmssd > 40:
+                    interpretations.append("✅ RMSSD ist hoch – gute parasympathische Aktivität, gute Erholung.")
+                elif 20 <= rmssd <= 40:
+                    interpretations.append("⚠️ RMSSD ist mittel – moderate Erholung, evtl. leichte Belastung.")
                 else:
-                    st.write("Keine unregelmäßigen PP-Intervalle gefunden.")
-            else:
-                st.write("Nicht genügend Peaks für RR-/PP-Analyse.")
-        else:
-            st.write("Nicht genügend Peaks für RR-/PP-Analyse.")
+                    interpretations.append("❌ RMSSD ist niedrig – geringe Erholung, möglicher Stress.")
 
-        # EKG-Plot mit Peaks
+                pnn50 = hrv_time_dict.get('HRV_pNN50', 0)
+                if pnn50 > 10:
+                    interpretations.append("✅ pNN50 ist hoch – gutes Erholungsniveau.")
+                elif 5 <= pnn50 <= 10:
+                    interpretations.append("⚠️ pNN50 ist mittel – moderate Erholung.")
+                else:
+                    interpretations.append("❌ pNN50 ist niedrig – geringes Erholungsniveau.")
 
-        fig_ekg = go.Figure()
-        fig_ekg.add_trace(go.Scatter(x=df["Zeit in ms"] / 60000, y=df["Messwerte in mV"], mode='lines', name='EKG Signal'))
-        peaks_df = df[df["Peak"] == 1]
-        fig_ekg.add_trace(go.Scatter(x=peaks_df["Zeit in ms"] / 60000, y=peaks_df["Messwerte in mV"], mode='markers', name='Peaks'))
+                lf_hf = hrv_freq_dict.get('HRV_LFHF', 0)
+                if lf_hf < 2:
+                    interpretations.append("✅ LF/HF-Verhältnis ist ausgewogen – sympathische und parasympathische Aktivität im Gleichgewicht.")
+                elif 2 <= lf_hf <= 5:
+                    interpretations.append("⚠️ LF/HF-Verhältnis ist leicht sympathisch dominiert – erhöhter Stresslevel möglich.")
+                else:
+                    interpretations.append("❌ LF/HF-Verhältnis ist stark sympathisch dominiert – hoher Stress oder Aktivierung.")
 
-        start = df["Zeit in ms"].min() / 60000
-        fig_ekg.update_layout(
-            title="EKG mit Peaks",
-            xaxis=dict(
-                range=[start, start + 5000 / 60000],
-                rangeslider=dict(visible=True),
-                type="linear",
-                autorange=False
-            ),
-            yaxis_title="Messwerte in mV",
-            xaxis_title="Zeit in Minuten",
-            height=400
+                return interpretations
+
+            st.subheader("📝 Interpretation der HRV-Werte")
+            interpretations = interpret_hrv(hrv_time.iloc[0].to_dict(), hrv_freq.iloc[0].to_dict())
+            for text in interpretations:
+                st.write(text)
+
+        except Exception as e:
+            st.warning(f"NeuroKit2 Analyse konnte nicht durchgeführt werden: {e}")
+
+        df = ekg.df
+        zeit_min = df["Zeit in ms"] / 60000  # Zeit in Minuten
+
+        # Auswahl, was geplottet werden soll
+        plot_option = st.radio(
+            "Was soll angezeigt werden?",
+            options=["EKG + Herzfrequenz", "Nur EKG", "Nur Herzfrequenz"],
+            index=0
         )
-        st.plotly_chart(fig_ekg, use_container_width=True)
 
-        # Instantane Herzfrequenz-Plot
-        instant_hr = ekg.get_instant_hr()
-        if len(instant_hr) == 0:
-            st.write("Keine Herzfrequenz-Daten verfügbar.")
-        else:
-            peak_times = df.loc[df["Peak"] == 1, "Zeit in ms"].values
-            hr_times = (peak_times[:-1] + np.diff(peak_times) / 2) / 60000
-            hr_df = pd.DataFrame({"Zeit in Minuten": hr_times, "Herzfrequenz (bpm)": instant_hr})
+        fig = go.Figure()
 
-            fig_hr = go.Figure()
-            fig_hr.add_trace(go.Scatter(x=hr_df["Zeit in Minuten"], y=hr_df["Herzfrequenz (bpm)"], mode="lines+markers", name="Instant HR"))
-            fig_hr.update_layout(
-                title="Instantane Herzfrequenz (beat-to-beat) über die Zeit",
-                xaxis_title="Zeit in Minuten",
-                yaxis_title="Herzfrequenz (bpm)",
-                height=400
+        # EKG-Signal + Peaks
+        if plot_option in ["EKG + Herzfrequenz", "Nur EKG"]:
+            fig.add_trace(go.Scatter(
+                x=zeit_min,
+                y=df["Messwerte in mV"],
+                mode='lines',
+                name='EKG Signal'
+            ))
+
+            peaks_df = df[df["Peak"] == 1]
+            fig.add_trace(go.Scatter(
+                x=peaks_df["Zeit in ms"] / 60000,
+                y=peaks_df["Messwerte in mV"],
+                mode='markers',
+                name='Peaks'
+            ))
+
+        # Instantane Herzfrequenz berechnen
+        if plot_option in ["EKG + Herzfrequenz", "Nur Herzfrequenz"]:
+            if len(instant_hr) > 0:
+                peak_times_ms = df.loc[df["Peak"] == 1, "Zeit in ms"].values
+                hr_times_min = (peak_times_ms[:-1] + np.diff(peak_times_ms) / 2) / 60000
+                fig.add_trace(go.Scatter(
+                    x=hr_times_min,
+                    y=instant_hr,
+                    mode='lines+markers',
+                    name='Instantane Herzfrequenz (bpm)',
+                    yaxis='y2'
+                ))
+
+        # Achsen definieren
+        layout = dict(
+            title="EKG + Herzfrequenz",
+            xaxis_title="Zeit in Minuten",
+            height=500,
+            xaxis=dict(
+                range=[zeit_min.min(), zeit_min.min() + 0.2],
+                rangeslider=dict(visible=True)
             )
-            st.plotly_chart(fig_hr, use_container_width=True)
+        )
+
+        # Y-Achsen anpassen je nach Auswahl
+        if plot_option == "Nur Herzfrequenz":
+            layout["yaxis"] = dict(
+                title="Herzfrequenz (bpm)"
+            )
+        else:
+            layout["yaxis"] = dict(
+                title="Messwerte in mV",
+                side="left"
+            )
+
+        if plot_option in ["EKG + Herzfrequenz", "Nur Herzfrequenz"]:
+            layout["yaxis2"] = dict(
+                title="Herzfrequenz (bpm)",
+                overlaying="y",
+                side="right"
+            )
+
+        fig.update_layout(layout)
+        st.plotly_chart(fig, use_container_width=True)
 
     else:
-        st.info("Keine EKG-Daten für diese Person vorhanden.")
+        st.warning("Keine Person ausgewählt oder keine EKG-Daten vorhanden.")
 
 
 

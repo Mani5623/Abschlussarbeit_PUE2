@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:83044a0ec32f3a5cc75c58a91aa85be8f8a45ef0e9667f081642f240d2df6e55"
+content_hash = "sha256:fd51f0746ea3e3390296e0e11e938f391dfca835bb1d797081ab008c7797eab2"
 
 [[metadata.targets]]
 requires_python = "==3.13.*"
@@ -142,7 +142,6 @@ version = "1.3.2"
 requires_python = ">=3.10"
 summary = "Python library for calculating contours of 2D quadrilateral grids"
 groups = ["default"]
-marker = "python_version >= \"3.8\""
 dependencies = [
     "numpy>=1.23",
 ]
@@ -176,7 +175,6 @@ version = "0.12.1"
 requires_python = ">=3.8"
 summary = "Composable style cycles"
 groups = ["default"]
-marker = "python_version >= \"3.8\""
 files = [
     {file = "cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30"},
     {file = "cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c"},
@@ -215,7 +213,6 @@ version = "4.58.4"
 requires_python = ">=3.9"
 summary = "Tools to manipulate font files"
 groups = ["default"]
-marker = "python_version >= \"3.8\""
 files = [
     {file = "fonttools-4.58.4-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:5f4a64846495c543796fa59b90b7a7a9dff6839bd852741ab35a71994d685c6d"},
     {file = "fonttools-4.58.4-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:e80661793a5d4d7ad132a2aa1eae2e160fbdbb50831a0edf37c7c63b2ed36574"},
@@ -326,6 +323,17 @@ files = [
 ]
 
 [[package]]
+name = "joblib"
+version = "1.5.1"
+requires_python = ">=3.9"
+summary = "Lightweight pipelining with Python functions"
+groups = ["default"]
+files = [
+    {file = "joblib-1.5.1-py3-none-any.whl", hash = "sha256:4719a31f054c7d766948dcd83e9613686b27114f190f717cec7eaa2084f8a74a"},
+    {file = "joblib-1.5.1.tar.gz", hash = "sha256:f4f86e351f39fe3d0d32a9f2c3d8af1ee4cec285aafcb27003dda5205576b444"},
+]
+
+[[package]]
 name = "jsonschema"
 version = "4.24.0"
 requires_python = ">=3.9"
@@ -364,7 +372,6 @@ version = "1.4.8"
 requires_python = ">=3.10"
 summary = "A fast implementation of the Cassowary constraint solver"
 groups = ["default"]
-marker = "python_version >= \"3.8\""
 files = [
     {file = "kiwisolver-1.4.8-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:1c8ceb754339793c24aee1c9fb2485b5b1f5bb1c2c214ff13368431e51fc9a09"},
     {file = "kiwisolver-1.4.8-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:54a62808ac74b5e55a04a408cda6156f986cefbcf0ada13572696b507cc92fa1"},
@@ -433,7 +440,6 @@ version = "3.10.3"
 requires_python = ">=3.10"
 summary = "Python plotting package"
 groups = ["default"]
-marker = "python_version >= \"3.8\""
 dependencies = [
     "contourpy>=1.0.1",
     "cycler>=0.10",
@@ -470,6 +476,24 @@ groups = ["default"]
 files = [
     {file = "narwhals-1.42.0-py3-none-any.whl", hash = "sha256:ef6cedf7700dc22c09d17973b9ede11b53e25331e238b24ac73884a8c5e27c19"},
     {file = "narwhals-1.42.0.tar.gz", hash = "sha256:a5e554782446d1197593312651352cd39b2025e995053d8e6bdfaa01a70a91d3"},
+]
+
+[[package]]
+name = "neurokit2"
+version = "0.2.11"
+summary = "The Python Toolbox for Neurophysiological Signal Processing."
+groups = ["default"]
+dependencies = [
+    "matplotlib>=3.5.0",
+    "numpy",
+    "pandas",
+    "requests",
+    "scikit-learn>=1.0.0",
+    "scipy",
+]
+files = [
+    {file = "neurokit2-0.2.11-py2.py3-none-any.whl", hash = "sha256:93e70203c5059faa88075d5d5b7c4cb76c42c27160f8b7d11f750e55db935ef8"},
+    {file = "neurokit2-0.2.11.tar.gz", hash = "sha256:c05f4144168918d401b805447a1d994ed31c63912eaece8bbee25f3acf463e5d"},
 ]
 
 [[package]]
@@ -658,7 +682,6 @@ version = "3.2.3"
 requires_python = ">=3.9"
 summary = "pyparsing module - Classes and methods to define and execute parsing grammars"
 groups = ["default"]
-marker = "python_version >= \"3.8\""
 files = [
     {file = "pyparsing-3.2.3-py3-none-any.whl", hash = "sha256:a749938e02d6fd0b59b356ca504a24982314bb090c383e3cf201c95ef7e2bfcf"},
     {file = "pyparsing-3.2.3.tar.gz", hash = "sha256:b9c13f1ab8b3b542f72e28f634bad4de758ab3ce4546e4301970ad6fa77c38be"},
@@ -686,6 +709,32 @@ groups = ["default"]
 files = [
     {file = "pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00"},
     {file = "pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3"},
+]
+
+[[package]]
+name = "pywavelets"
+version = "1.8.0"
+requires_python = ">=3.10"
+summary = "PyWavelets, wavelet transform module"
+groups = ["default"]
+dependencies = [
+    "numpy<3,>=1.23",
+]
+files = [
+    {file = "pywavelets-1.8.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:441ba45c8dff8c6916dbe706958d0d7f91da675695ca0c0d75e483f6f52d0a12"},
+    {file = "pywavelets-1.8.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:24bb282bab09349d9d128ed0536fa50fff5c2147891971a69c2c36155dfeeeac"},
+    {file = "pywavelets-1.8.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:426ff3799446cb4da1db04c2084e6e58edfe24225596805665fd39c14f53dece"},
+    {file = "pywavelets-1.8.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:aa0607a9c085b8285bc0d04e33d461a6c80f8c325389221ffb1a45141861138e"},
+    {file = "pywavelets-1.8.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:d31c36a39110e8fcc7b1a4a11cfed7d22b610c285d3e7f4fe73ec777aa49fa39"},
+    {file = "pywavelets-1.8.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:fa7c68ed1e5bab23b1bafe60ccbcf709b878652d03de59e961baefa5210fcd0a"},
+    {file = "pywavelets-1.8.0-cp313-cp313-win32.whl", hash = "sha256:2c6b359b55d713ef683e9da1529181b865a80d759881ceb9adc1c5742e4da4d8"},
+    {file = "pywavelets-1.8.0-cp313-cp313-win_amd64.whl", hash = "sha256:4dbebcfd55ea8a85b7fc8802d411e75337170422abf6e96019d7e46c394e80e5"},
+    {file = "pywavelets-1.8.0-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:2e1c79784bebeafd3715c1bea6621daa2e2e6ed37b687719322e2078fb35bb70"},
+    {file = "pywavelets-1.8.0-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7f489380c95013cc8fb3ef338f6d8c1a907125db453cc4dc739e2cca06fcd8b6"},
+    {file = "pywavelets-1.8.0-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:06786201a91b5e74540f4f3c115c49a29190de2eb424823abbd3a1fd75ea3e28"},
+    {file = "pywavelets-1.8.0-cp313-cp313t-win32.whl", hash = "sha256:f2877fb7b58c94211257dcf364b204d6ed259146fc87d5a90bf9d93c97af6226"},
+    {file = "pywavelets-1.8.0-cp313-cp313t-win_amd64.whl", hash = "sha256:ec5d723c3335ff8aa630fd4b14097077f12cc02893c91cafd60dd7b1730e780f"},
+    {file = "pywavelets-1.8.0.tar.gz", hash = "sha256:f3800245754840adc143cbc29534a1b8fc4b8cff6e9d403326bd52b7bb5c35aa"},
 ]
 
 [[package]]
@@ -759,6 +808,31 @@ files = [
 ]
 
 [[package]]
+name = "scikit-learn"
+version = "1.7.0"
+requires_python = ">=3.10"
+summary = "A set of python modules for machine learning and data mining"
+groups = ["default"]
+dependencies = [
+    "joblib>=1.2.0",
+    "numpy>=1.22.0",
+    "scipy>=1.8.0",
+    "threadpoolctl>=3.1.0",
+]
+files = [
+    {file = "scikit_learn-1.7.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:5b7974f1f32bc586c90145df51130e02267e4b7e77cab76165c76cf43faca0d9"},
+    {file = "scikit_learn-1.7.0-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:014e07a23fe02e65f9392898143c542a50b6001dbe89cb867e19688e468d049b"},
+    {file = "scikit_learn-1.7.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e7e7ced20582d3a5516fb6f405fd1d254e1f5ce712bfef2589f51326af6346e8"},
+    {file = "scikit_learn-1.7.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1babf2511e6ffd695da7a983b4e4d6de45dce39577b26b721610711081850906"},
+    {file = "scikit_learn-1.7.0-cp313-cp313-win_amd64.whl", hash = "sha256:5abd2acff939d5bd4701283f009b01496832d50ddafa83c90125a4e41c33e314"},
+    {file = "scikit_learn-1.7.0-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:e39d95a929b112047c25b775035c8c234c5ca67e681ce60d12413afb501129f7"},
+    {file = "scikit_learn-1.7.0-cp313-cp313t-macosx_12_0_arm64.whl", hash = "sha256:0521cb460426c56fee7e07f9365b0f45ec8ca7b2d696534ac98bfb85e7ae4775"},
+    {file = "scikit_learn-1.7.0-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:317ca9f83acbde2883bd6bb27116a741bfcb371369706b4f9973cf30e9a03b0d"},
+    {file = "scikit_learn-1.7.0-cp313-cp313t-win_amd64.whl", hash = "sha256:126c09740a6f016e815ab985b21e3a0656835414521c81fc1a8da78b679bdb75"},
+    {file = "scikit_learn-1.7.0.tar.gz", hash = "sha256:c01e869b15aec88e2cdb73d27f15bdbe03bce8e2fb43afbe77c45d399e73a5a3"},
+]
+
+[[package]]
 name = "scipy"
 version = "1.15.3"
 requires_python = ">=3.10"
@@ -824,18 +898,18 @@ files = [
 
 [[package]]
 name = "streamlit"
-version = "1.45.1"
+version = "1.46.0"
 requires_python = "!=3.9.7,>=3.9"
 summary = "A faster way to build and share data apps"
 groups = ["default"]
 dependencies = [
     "altair<6,>=4.0",
     "blinker<2,>=1.5.0",
-    "cachetools<6,>=4.0",
+    "cachetools<7,>=4.0",
     "click<9,>=7.0",
     "gitpython!=3.1.19,<4,>=3.0.7",
     "numpy<3,>=1.23",
-    "packaging<25,>=20",
+    "packaging<26,>=20",
     "pandas<3,>=1.4.0",
     "pillow<12,>=7.1.0",
     "protobuf<7,>=3.20",
@@ -844,13 +918,13 @@ dependencies = [
     "requests<3,>=2.27",
     "tenacity<10,>=8.1.0",
     "toml<2,>=0.10.1",
-    "tornado<7,>=6.0.3",
+    "tornado!=6.5.0,<7,>=6.0.3",
     "typing-extensions<5,>=4.4.0",
     "watchdog<7,>=2.1.5; platform_system != \"Darwin\"",
 ]
 files = [
-    {file = "streamlit-1.45.1-py3-none-any.whl", hash = "sha256:9ab6951585e9444672dd650850f81767b01bba5d87c8dac9bc2e1c859d6cc254"},
-    {file = "streamlit-1.45.1.tar.gz", hash = "sha256:e37d56c0af5240dbc240976880e81366689c290a559376417246f9b3f51b4217"},
+    {file = "streamlit-1.46.0-py3-none-any.whl", hash = "sha256:f8624acabafcf18611a0fac2635cf181a7ba922b45bd131ae15fc8f80e1a5482"},
+    {file = "streamlit-1.46.0.tar.gz", hash = "sha256:0b2734b48f11f1e5c8046011b6b1a2274982dc657eef2ade8db70f0e1dc53dda"},
 ]
 
 [[package]]
@@ -879,6 +953,17 @@ groups = ["default"]
 files = [
     {file = "tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138"},
     {file = "tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb"},
+]
+
+[[package]]
+name = "threadpoolctl"
+version = "3.6.0"
+requires_python = ">=3.9"
+summary = "threadpoolctl"
+groups = ["default"]
+files = [
+    {file = "threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb"},
+    {file = "threadpoolctl-3.6.0.tar.gz", hash = "sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e"},
 ]
 
 [[package]]
