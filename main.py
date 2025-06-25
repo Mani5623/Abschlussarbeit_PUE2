@@ -12,12 +12,19 @@ from ekgdata import EKGdata
 from streamlit_folium import st_folium
 import read_fit_file
 import neurokit2 as nk
+import os
+from datetime import datetime, date
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
 
-# Tabs als Registerkarten oben
-tab1, tab2, tab3, tab4 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File"])
+# Session State initialisieren
+if 'show_add_form' not in st.session_state:
+    st.session_state.show_add_form = False
 
+# Erweiterte Tabs mit neuem "Person hinzufügen" Tab
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File", "➕ Person hinzufügen"])
+
+# Tab 1: Versuchsperson auswählen (ohne "Person hinzufügen" Sektion)
 with tab1:
     # Personenauswahl
     person_names = read_data.get_person_list()
@@ -38,9 +45,11 @@ with tab1:
         st.write("Personen-ID:", person_obj.id)
         gender = person_obj.gender or "Unbekannt"
         st.write("Geschlecht:", gender)
-        st.write("Geburtsjahr", person_obj.date_of_birth)
+        st.write("Geburtsdatum:", person_obj.date_of_birth.year)
+        st.write("Alter:", person_obj.calc_age(), "Jahre")
     else:
         st.warning("Keine Person ausgewählt oder Person nicht gefunden.")
+
 
 
 with tab2:
@@ -498,5 +507,129 @@ with tab4:
         st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
 
 
-
+# Tab 5: Neue Person hinzufügen
+with tab5:
+    st.header("➕ Neue Person hinzufügen")
+    st.write("Hier können Sie eine neue Versuchsperson zur Datenbank hinzufügen.")
+    
+    with st.form("add_person_form", clear_on_submit=True):
+        st.subheader("Persönliche Daten")
+        
+        # Layout in zwei Spalten
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Grunddaten**")
+            firstname = st.text_input("Vorname*", 
+                                    placeholder="z.B. Max",
+                                    help="Bitte geben Sie den Vornamen ein")
+            
+            lastname = st.text_input("Nachname*", 
+                                   placeholder="z.B. Mustermann",
+                                   help="Bitte geben Sie den Nachnamen ein")
+            
+            gender = st.selectbox("Geschlecht*", 
+                                options=["male", "female"], 
+                                format_func=lambda x: "👨 Männlich" if x == "male" else "👩 Weiblich",
+                                help="Wählen Sie das Geschlecht aus")
+        
+        with col2:
+            st.markdown("**Geburtsdatum & Bild**")
+            
+            # Kalender für Geburtsdatum
+            birth_date = st.date_input(
+                "Geburtsdatum*",
+                value=date(2000, 1, 1),
+                min_value=date(1900, 1, 1),
+                max_value=date.today(),
+                help="Wählen Sie das Geburtsdatum aus dem Kalender"
+            )
+            
+            # Bildupload
+            uploaded_file = st.file_uploader(
+                "Profilbild (optional)", 
+                type=['png', 'jpg', 'jpeg'],
+                help="Laden Sie ein Profilbild hoch (PNG, JPG oder JPEG)"
+            )
+            
+            # Vorschau des hochgeladenen Bildes
+            if uploaded_file is not None:
+                try:
+                    preview_image = Image.open(uploaded_file)
+                    st.image(preview_image, caption="Bildvorschau", width=200)
+                except Exception as e:
+                    st.error(f"Fehler beim Anzeigen der Bildvorschau: {e}")
+        
+        # Zusätzliche Informationen
+        st.markdown("---")
+        st.markdown("**Zusätzliche Informationen**")
+        
+        # Berechne Alter basierend auf ausgewähltem Datum
+        if birth_date:
+            calculated_age = date.today().year - birth_date.year
+            if date.today() < date(date.today().year, birth_date.month, birth_date.day):
+                calculated_age -= 1
+            st.info(f"📅 Berechnetes Alter: {calculated_age} Jahre")
+        
+        # Submit-Buttons
+        st.markdown("---")
+        col_submit, col_reset = st.columns([1, 1])
+        
+        with col_submit:
+            submitted = st.form_submit_button(
+                "👤 Person speichern", 
+                type="primary",
+                use_container_width=True
+            )
+        
+        with col_reset:
+            reset_form = st.form_submit_button(
+                "🔄 Formular zurücksetzen",
+                use_container_width=True
+            )
+        
+        # Formular-Verarbeitung
+        if submitted:
+            # Validierung
+            if not firstname or not lastname:
+                st.error("❌ Bitte füllen Sie alle Pflichtfelder (*) aus.")
+            elif not birth_date:
+                st.error("❌ Bitte wählen Sie ein gültiges Geburtsdatum aus.")
+            else:
+                try:
+                    # Prüfe auf Duplikate
+                    if Person.person_exists(firstname, lastname):
+                        st.error(f"❌ Person {firstname} {lastname} existiert bereits in der Datenbank!")
+                    else:
+                        # Neue Person erstellen
+                        success = Person.add_new_person(
+                            firstname=firstname,
+                            lastname=lastname,
+                            birth_date=birth_date,  # Übergebe das date-Objekt
+                            gender=gender,
+                            uploaded_file=uploaded_file
+                        )
+                        
+                        if success:
+                            st.success(f"✅ Person {firstname} {lastname} wurde erfolgreich hinzugefügt!")
+                            st.balloons()  # Feier-Animation
+                            
+                            # Zeige Zusammenfassung
+                            with st.expander("📋 Zusammenfassung der hinzugefügten Person"):
+                                st.write(f"**Name:** {firstname} {lastname}")
+                                st.write(f"**Geschlecht:** {'Männlich' if gender == 'male' else 'Weiblich'}")
+                                st.write(f"**Geburtsdatum:** {birth_date.strftime('%d.%m.%Y')}")
+                                st.write(f"**Alter:** {calculated_age} Jahre")
+                                if uploaded_file:
+                                    st.write("**Profilbild:** ✅ Hochgeladen")
+                                else:
+                                    st.write("**Profilbild:** ❌ Nicht vorhanden")
+                        else:
+                            st.error("❌ Fehler beim Speichern der Person. Bitte versuchen Sie es erneut.")
+                
+                except Exception as e:
+                    st.error(f"❌ Unerwarteter Fehler: {str(e)}")
+        
+        if reset_form:
+            st.info("🔄 Formular wurde zurückgesetzt.")
 
