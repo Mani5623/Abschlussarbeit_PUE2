@@ -187,14 +187,14 @@ class FitFileAnalyzer:
         )
         return fig
     
-    def create_gps_map(self, color_metric='altitude'):
-        """Erstellt GPS-Karte mit Farbkodierung"""
+    def create_gps_map(self, color_metric=None):
+        """Erstellt GPS-Karte - standardmäßig ohne Farbkodierung"""
         lat, lon, mask = self._get_lat_lon_optimized()
         if lat is None or len(lat) < 2:
             return None
         
-        # Prüfe Metrik-Verfügbarkeit
-        if color_metric not in self.df.columns or self.df[color_metric].isna().all():
+        # Standardmäßig ohne Farbe, nur wenn explizit gewählt
+        if color_metric is None or color_metric not in self.df.columns or self.df[color_metric].isna().all():
             return self._create_simple_map(lat, lon)
         
         return self._create_colored_map(lat, lon, mask, color_metric)
@@ -221,7 +221,7 @@ class FitFileAnalyzer:
         return lat[mask], lon[mask], mask
     
     def _create_colored_map(self, lat, lon, mask, color_metric):
-        """Erstellt farbkodierte Karte"""
+        """Erstellt farbkodierte Karte mit Legende"""
         metric_data = self.df[color_metric][mask].fillna(method='ffill').fillna(0)
         
         if len(lat) != len(metric_data):
@@ -261,7 +261,8 @@ class FitFileAnalyzer:
                     opacity=0.8
                 ).add_to(m)
             
-            self._add_legend(m, color_metric, vmin, vmax)
+            # Verbesserte Legende mit Farbbalken
+            self._add_color_legend(m, color_metric, vmin, vmax, colormap, norm)
         else:
             folium.PolyLine(
                 list(zip(latitudes, longitudes)),
@@ -297,7 +298,8 @@ class FitFileAnalyzer:
         folium.PolyLine(
             list(zip(latitudes, longitudes)),
             color='blue',
-            weight=4
+            weight=4,
+            opacity=0.8
         ).add_to(m)
         
         self._add_start_end_markers(m, latitudes, longitudes)
@@ -319,16 +321,34 @@ class FitFileAnalyzer:
         else:
             return [20, 20]
     
-    def _add_legend(self, m, metric, vmin, vmax):
-        """Fügt Legende zur Karte hinzu"""
+    def _add_color_legend(self, m, metric, vmin, vmax, colormap, norm):
+        """Fügt erweiterte Farbbalken-Legende zur Karte hinzu"""
         metric_label = self.AVAILABLE_METRICS.get(metric, metric)
+        
+        # Erstelle Farbbalken-HTML
+        gradient_colors = []
+        for i in range(10):
+            value = vmin + (vmax - vmin) * i / 9
+            color = colors.rgb2hex(colormap(norm(value)))
+            gradient_colors.append(color)
+        
+        gradient_string = ', '.join(gradient_colors)
+        
         legend_html = f'''
-        <div style="position: fixed; bottom: 50px; left: 50px; width: 150px; height: 90px; 
+        <div style="position: fixed; bottom: 50px; left: 50px; width: 180px; height: 120px; 
                     background-color: white; border:2px solid grey; z-index:9999; 
-                    font-size:14px; padding: 10px; border-radius: 5px;">
-        <p><b>{metric_label}</b></p>
-        <p>Min: {vmin:.1f}</p>
-        <p>Max: {vmax:.1f}</p>
+                    font-size:12px; padding: 10px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+        <p style="margin: 0 0 8px 0; font-weight: bold; text-align: center;">{metric_label}</p>
+        <div style="height: 20px; background: linear-gradient(to right, {gradient_string}); 
+                    border: 1px solid #ccc; margin: 5px 0;"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 5px;">
+            <span>{vmin:.1f}</span>
+            <span>{((vmin + vmax) / 2):.1f}</span>
+            <span>{vmax:.1f}</span>
+        </div>
+        <div style="text-align: center; font-size: 10px; color: #666; margin-top: 5px;">
+            🟢 Start &nbsp;&nbsp;&nbsp; 🔴 Ende
+        </div>
         </div>
         '''
         m.get_root().html.add_child(folium.Element(legend_html))
@@ -350,4 +370,16 @@ class FitFileAnalyzer:
     def is_valid(self):
         """Prüft ob die Daten gültig sind"""
         return not self.df.empty
-    
+
+
+# Backward compatibility - alte Funktionen für bestehenden Code
+def read_fit_file(file):
+    """Wrapper-Funktion für Backward Compatibility"""
+    analyzer = FitFileAnalyzer(file)
+    return analyzer.df
+
+def calculate_workout_duration_hours(df):
+    """Wrapper-Funktion für Backward Compatibility"""
+    if 'time_seconds' not in df or df.empty:
+        return 0
+    return (df['time_seconds'].iloc[-1] - df['time_seconds'].iloc[0]) / 3600

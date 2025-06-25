@@ -419,34 +419,34 @@ with tab4:
             # GPS-Karte
             st.subheader("📍 GPS-Route")
 
-            if analyzer.available_metrics:
-                col1, col2 = st.columns([1, 2])
-                
-                with col1:
-                    selected_metric = st.selectbox(
-                        "Farbkodierung nach:",
-                        options=list(analyzer.available_metrics.keys()),
-                        format_func=lambda x: analyzer.available_metrics[x],
-                        key="color_metric",
-                        index=0
-                    )
-                
-                with col2:
-                    if 'color_metric' in st.session_state:
-                        metric_label = analyzer.available_metrics[st.session_state['color_metric']]
-                        st.info(f"Route eingefärbt nach: **{metric_label}**")
-                
-                # Karte erstellen
-                if 'color_metric' in st.session_state:
-                    with st.spinner("Karte wird erstellt..."):
-                        m = analyzer.create_gps_map(st.session_state['color_metric'])
+            # Farbauswahl mit "Keine Farbe" als Standard
+            color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                selected_option = st.selectbox(
+                    "Farbkodierung nach:",
+                    options=color_options,
+                    format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
+                    key="color_metric",
+                    index=0  # "Keine Farbe" ist Standard
+                )
+            
+            with col2:
+                if selected_option != "Keine Farbe":
+                    metric_label = analyzer.available_metrics[selected_option]
+                    st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
                 else:
-                    with st.spinner("Karte wird erstellt..."):
-                        m = analyzer.create_gps_map()
+                    st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
+            
+            # Karte erstellen
+            if selected_option != "Keine Farbe":
+                with st.spinner("Farbkodierte Karte wird erstellt..."):
+                    m = analyzer.create_gps_map(selected_option)
             else:
-                st.warning("Keine Metriken für Farbkodierung verfügbar")
                 with st.spinner("Karte wird erstellt..."):
-                    m = analyzer.create_gps_map()
+                    m = analyzer.create_gps_map()  # Ohne color_metric = einfache Karte
             
             if m:
                 from streamlit_folium import st_folium
