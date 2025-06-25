@@ -6,290 +6,348 @@ import folium
 import matplotlib.cm as cm
 import matplotlib.colors as colors
 from functools import lru_cache
+from datetime import timedelta
 
-# Konstanten für bessere Performance
-SEMICIRCLE_TO_DEGREE = 180 / 2**31
-AVAILABLE_METRICS = {
-    'altitude': 'Höhenmeter',
-    'heart_rate': 'Herzfrequenz', 
-    'speed': 'Geschwindigkeit',
-    'power': 'Leistung'
-}
-
-def read_fit_file(file):
-    """Optimierte FIT-File Einlesung mit besserer Performance"""
-    fitfile = FitFile(file)
-    all_records = []
+class FitFileAnalyzer:
+    """Objektorientierte Klasse für FIT-File Analyse"""
     
-    # Direkte Liste statt separater times Liste
-    for record in fitfile.get_messages('record'):
-        data = {field.name: field.value for field in record}
-        all_records.append(data)
-    
-    if not all_records:
-        return pd.DataFrame()
-    
-    df = pd.DataFrame(all_records)
-    
-    # Zeit in Sekunden berechnen (falls timestamp vorhanden)
-    if 'timestamp' in df.columns:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        start_time = df['timestamp'].iloc[0]
-        df['time_seconds'] = (df['timestamp'] - start_time).dt.total_seconds()
-    
-    return df
-
-def calculate_workout_duration_hours(df):
-    """Effiziente Berechnung der Workout-Dauer"""
-    if 'time_seconds' not in df or df.empty:
-        return 0
-    return (df['time_seconds'].iloc[-1] - df['time_seconds'].iloc[0]) / 3600
-
-def create_time_plot(df, column, title, y_label, duration_hours):
-    """Generische Funktion für Zeit-basierte Plots"""
-    if column not in df or df[column].isna().all():
-        return None
-    
-    time_data = df['time_seconds'] if 'time_seconds' in df else np.arange(len(df))
-    
-    # Zeitachse skalieren
-    if duration_hours > 2:
-        time_scaled = time_data / 3600
-        xaxis_title = 'Zeit (Stunden)'
-    else:
-        time_scaled = time_data / 60
-        xaxis_title = 'Zeit (Minuten)'
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=time_scaled, 
-        y=df[column], 
-        mode='lines', 
-        name=y_label
-    ))
-    fig.update_layout(
-        title=title,
-        xaxis_title=xaxis_title,
-        yaxis_title=y_label
-    )
-    return fig
-
-def plot_heart_rate(df, duration_hours):
-    """Herzfrequenz-Plot mit generischer Funktion"""
-    return create_time_plot(df, 'heart_rate', 'Herzfrequenzverlauf', 'Herzfrequenz (bpm)', duration_hours)
-
-def plot_altitude(df, duration_hours):
-    """Höhen-Plot mit generischer Funktion"""
-    return create_time_plot(df, 'altitude', 'Höhenmeterverlauf', 'Höhe (m)', duration_hours)
-
-@lru_cache(maxsize=1)
-def get_colormap():
-    """Cached Colormap für bessere Performance"""
-    return cm.get_cmap('viridis')
-
-def get_lat_lon_optimized(df):
-    """Optimierte GPS-Koordinaten Extraktion"""
-    lat, lon = None, None
-    
-    # Prüfe enhanced position zuerst (häufiger und genauer)
-    if 'enhanced_position_lat' in df and 'enhanced_position_long' in df:
-        lat = df['enhanced_position_lat']
-        lon = df['enhanced_position_long']
-    elif 'position_lat' in df and 'position_long' in df:
-        # Effiziente Vektorisierte Konvertierung
-        lat = df['position_lat'] * SEMICIRCLE_TO_DEGREE
-        lon = df['position_long'] * SEMICIRCLE_TO_DEGREE
-    else:
-        return None, None, None
-    
-    # Optimierte Maske mit numpy
-    mask = (
-        lat.notna() & lon.notna() & 
-        (lat != 0) & (lon != 0) &
-        (lat.abs() <= 90) & (lon.abs() <= 180)  # Validitätsprüfung
-    )
-    
-    return lat[mask], lon[mask], mask
-
-def get_available_metrics(df):
-    """Effiziente Prüfung verfügbarer Metriken"""
-    return {
-        metric: label for metric, label in AVAILABLE_METRICS.items()
-        if metric in df.columns and not df[metric].isna().all()
+    # Klassenkonstanten
+    SEMICIRCLE_TO_DEGREE = 180 / 2**31
+    AVAILABLE_METRICS = {
+        'altitude': 'Höhenmeter',
+        'heart_rate': 'Herzfrequenz', 
+        'speed': 'Geschwindigkeit',
+        'power': 'Leistung'
     }
-
-def calculate_optimal_padding(lat, lon):
-    """Berechnet optimales Padding basierend auf der Route"""
-    lat_range = lat.max() - lat.min()
-    lon_range = lon.max() - lon.min()
     
-    # Dynamisches Padding basierend auf der Routengröße
-    if lat_range < 0.01 and lon_range < 0.01:  # Sehr kleine Route
-        return [50, 50]
-    elif lat_range < 0.1 and lon_range < 0.1:  # Kleine Route
-        return [30, 30]
-    else:  # Große Route
-        return [20, 20]
-
-def plot_gpx_folium_colored(df, color_metric='altitude'):
-    """Optimierte farbkodierte Folium-Karte mit Auto-Fit und ohne Zoom"""
-    lat, lon, mask = get_lat_lon_optimized(df)
-    if lat is None or len(lat) < 2:
+    SPORT_METRICS = {
+        "Radfahren": [
+            ('power', 'W', 'Durchschnittliche Leistung'), 
+            ('distance', 'km', 'Gefahrene Distanz', 1000)
+        ],
+        "Laufen": [
+            ('distance', 'km', 'Gelaufene Distanz', 1000)
+        ],
+        "Schwimmen": [
+            ('distance', 'm', 'Geschwommene Distanz')
+        ],
+        "Sonstiges": [
+            ('distance', 'm', 'Distanz')
+        ]
+    }
+    
+    def __init__(self, fit_file):
+        """Initialisiert den Analyzer mit einer FIT-Datei"""
+        self.fit_file = fit_file
+        self.df = None
+        self.duration_hours = 0
+        self.available_metrics = {}
+        self._load_data()
+    
+    def _load_data(self):
+        """Lädt und verarbeitet die FIT-Datei"""
+        fitfile = FitFile(self.fit_file)
+        all_records = []
+        
+        for record in fitfile.get_messages('record'):
+            data = {field.name: field.value for field in record}
+            all_records.append(data)
+        
+        if not all_records:
+            self.df = pd.DataFrame()
+            return
+        
+        self.df = pd.DataFrame(all_records)
+        
+        # Zeit in Sekunden berechnen
+        if 'timestamp' in self.df.columns:
+            self.df['timestamp'] = pd.to_datetime(self.df['timestamp'])
+            start_time = self.df['timestamp'].iloc[0]
+            self.df['time_seconds'] = (self.df['timestamp'] - start_time).dt.total_seconds()
+        
+        self._calculate_duration()
+        self._get_available_metrics()
+    
+    def _calculate_duration(self):
+        """Berechnet die Workout-Dauer"""
+        if 'time_seconds' not in self.df or self.df.empty:
+            self.duration_hours = 0
+            return
+        self.duration_hours = (self.df['time_seconds'].iloc[-1] - self.df['time_seconds'].iloc[0]) / 3600
+    
+    def _get_available_metrics(self):
+        """Ermittelt verfügbare Metriken"""
+        self.available_metrics = {
+            metric: label for metric, label in self.AVAILABLE_METRICS.items()
+            if metric in self.df.columns and not self.df[metric].isna().all()
+        }
+    
+    def format_duration(self):
+        """Formatiert die Dauer in lesbares Format"""
+        total_minutes = int(self.duration_hours * 60)
+        hours_part = total_minutes // 60
+        minutes_part = total_minutes % 60
+        
+        if hours_part > 0:
+            return f"{hours_part}h {minutes_part}min"
+        else:
+            return f"{minutes_part}min"
+    
+    def get_sport_statistics(self, sport_type):
+        """Berechnet sportartspezifische Statistiken"""
+        stats = {}
+        
+        for metric_config in self.SPORT_METRICS.get(sport_type, []):
+            metric = metric_config[0]
+            unit = metric_config[1]
+            label = metric_config[2]
+            divisor = metric_config[3] if len(metric_config) > 3 else 1
+            
+            if metric in self.df and not self.df[metric].isna().all():
+                value = self.df[metric].mean() if metric == 'power' else self.df[metric].max()
+                value /= divisor
+                stats[label] = {'value': value, 'unit': unit, 'metric': metric}
+        
+        return stats
+    
+    def calculate_speed_metrics(self, sport_type, distance_value, distance_unit):
+        """Berechnet Geschwindigkeits- und Pace-Metriken"""
+        if self.duration_hours <= 0:
+            return None
+        
+        if distance_unit == 'km':
+            speed = distance_value / self.duration_hours
+            return {'type': 'speed', 'value': speed, 'unit': 'km/h', 'label': 'Durchschnittsgeschwindigkeit'}
+        
+        elif distance_unit == 'm':
+            if sport_type == "Schwimmen":
+                pace_per_100m = (self.duration_hours * 60) / (distance_value / 100)
+                return {'type': 'pace', 'value': pace_per_100m, 'unit': 'min/100m', 'label': 'Pace'}
+            
+            elif sport_type == "Laufen":
+                distance_km = distance_value / 1000
+                pace_per_km = (self.duration_hours * 60) / distance_km
+                pace_minutes = int(pace_per_km)
+                pace_seconds = int((pace_per_km - pace_minutes) * 60)
+                return {'type': 'pace', 'value': f"{pace_minutes}:{pace_seconds:02d}", 'unit': 'min/km', 'label': 'Pace'}
+        
         return None
     
-    # Prüfe Metrik-Verfügbarkeit
-    if color_metric not in df.columns or df[color_metric].isna().all():
-        return plot_gpx_folium_simple(lat, lon)
-    
-    # Gefilterte Metrik-Daten
-    metric_data = df[color_metric][mask].fillna(method='ffill').fillna(0)
-    
-    if len(lat) != len(metric_data):
-        return plot_gpx_folium_simple(lat, lon)
-    
-    # Konvertiere zu numpy arrays für bessere Performance
-    latitudes = lat.values
-    longitudes = lon.values
-    metric_values = metric_data.values
-    
-    # Berechne optimales Padding
-    padding = calculate_optimal_padding(lat, lon)
-    
-    # Karte ohne Zoom-Kontrollen erstellen
-    m = folium.Map(
-        zoom_control=False,        # Zoom-Buttons entfernen
-        scrollWheelZoom=False,     # Mausrad-Zoom deaktivieren
-        doubleClickZoom=False,     # Doppelklick-Zoom deaktivieren
-        touchZoom=False,           # Touch-Zoom deaktivieren
-        boxZoom=False,             # Box-Zoom deaktivieren
-        keyboard=False,            # Tastatur-Navigation deaktivieren
-        dragging=True,             # Verschieben erlauben
-        prefer_canvas=True         # Performance-Optimierung
-    )
-    
-    # Farbkodierung nur wenn verschiedene Werte vorhanden
-    if len(np.unique(metric_values)) > 1:
-        # Normalisierung mit numpy für bessere Performance
-        vmin, vmax = np.nanmin(metric_values), np.nanmax(metric_values)
-        norm = colors.Normalize(vmin=vmin, vmax=vmax)
-        colormap = get_colormap()
+    def get_heart_rate_stats(self):
+        """Berechnet Herzfrequenz-Statistiken"""
+        if 'heart_rate' not in self.df or self.df['heart_rate'].isna().all():
+            return None
         
-        # Effiziente Segment-Erstellung
-        coords = list(zip(latitudes, longitudes))
-        for i in range(len(coords) - 1):
-            avg_value = (metric_values[i] + metric_values[i + 1]) / 2
-            color = colors.rgb2hex(colormap(norm(avg_value)))
+        return {
+            'avg': self.df['heart_rate'].mean(),
+            'max': self.df['heart_rate'].max()
+        }
+    
+    def get_elevation_gain(self):
+        """Berechnet Höhenmeter bergauf"""
+        if 'altitude' not in self.df or self.df['altitude'].isna().all():
+            return None
+        
+        return (self.df['altitude'].diff().clip(lower=0)).sum()
+    
+    def create_heart_rate_plot(self):
+        """Erstellt Herzfrequenz-Plot"""
+        return self._create_time_plot('heart_rate', 'Herzfrequenzverlauf', 'Herzfrequenz (bpm)')
+    
+    def create_altitude_plot(self):
+        """Erstellt Höhen-Plot"""
+        return self._create_time_plot('altitude', 'Höhenmeterverlauf', 'Höhe (m)')
+    
+    def _create_time_plot(self, column, title, y_label):
+        """Generische Funktion für Zeit-basierte Plots"""
+        if column not in self.df or self.df[column].isna().all():
+            return None
+        
+        time_data = self.df['time_seconds'] if 'time_seconds' in self.df else np.arange(len(self.df))
+        
+        # Zeitachse skalieren
+        if self.duration_hours > 2:
+            time_scaled = time_data / 3600
+            xaxis_title = 'Zeit (Stunden)'
+        else:
+            time_scaled = time_data / 60
+            xaxis_title = 'Zeit (Minuten)'
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=time_scaled, 
+            y=self.df[column], 
+            mode='lines', 
+            name=y_label
+        ))
+        fig.update_layout(
+            title=title,
+            xaxis_title=xaxis_title,
+            yaxis_title=y_label
+        )
+        return fig
+    
+    def create_gps_map(self, color_metric='altitude'):
+        """Erstellt GPS-Karte mit Farbkodierung"""
+        lat, lon, mask = self._get_lat_lon_optimized()
+        if lat is None or len(lat) < 2:
+            return None
+        
+        # Prüfe Metrik-Verfügbarkeit
+        if color_metric not in self.df.columns or self.df[color_metric].isna().all():
+            return self._create_simple_map(lat, lon)
+        
+        return self._create_colored_map(lat, lon, mask, color_metric)
+    
+    def _get_lat_lon_optimized(self):
+        """Optimierte GPS-Koordinaten Extraktion"""
+        lat, lon = None, None
+        
+        if 'enhanced_position_lat' in self.df and 'enhanced_position_long' in self.df:
+            lat = self.df['enhanced_position_lat']
+            lon = self.df['enhanced_position_long']
+        elif 'position_lat' in self.df and 'position_long' in self.df:
+            lat = self.df['position_lat'] * self.SEMICIRCLE_TO_DEGREE
+            lon = self.df['position_long'] * self.SEMICIRCLE_TO_DEGREE
+        else:
+            return None, None, None
+        
+        mask = (
+            lat.notna() & lon.notna() & 
+            (lat != 0) & (lon != 0) &
+            (lat.abs() <= 90) & (lon.abs() <= 180)
+        )
+        
+        return lat[mask], lon[mask], mask
+    
+    def _create_colored_map(self, lat, lon, mask, color_metric):
+        """Erstellt farbkodierte Karte"""
+        metric_data = self.df[color_metric][mask].fillna(method='ffill').fillna(0)
+        
+        if len(lat) != len(metric_data):
+            return self._create_simple_map(lat, lon)
+        
+        latitudes = lat.values
+        longitudes = lon.values
+        metric_values = metric_data.values
+        
+        padding = self._calculate_optimal_padding(lat, lon)
+        
+        m = folium.Map(
+            zoom_control=False,
+            scrollWheelZoom=False,
+            doubleClickZoom=False,
+            touchZoom=False,
+            boxZoom=False,
+            keyboard=False,
+            dragging=True,
+            prefer_canvas=True
+        )
+        
+        if len(np.unique(metric_values)) > 1:
+            vmin, vmax = np.nanmin(metric_values), np.nanmax(metric_values)
+            norm = colors.Normalize(vmin=vmin, vmax=vmax)
+            colormap = cm.get_cmap('viridis')
             
+            coords = list(zip(latitudes, longitudes))
+            for i in range(len(coords) - 1):
+                avg_value = (metric_values[i] + metric_values[i + 1]) / 2
+                color = colors.rgb2hex(colormap(norm(avg_value)))
+                
+                folium.PolyLine(
+                    locations=[coords[i], coords[i + 1]],
+                    color=color,
+                    weight=4,
+                    opacity=0.8
+                ).add_to(m)
+            
+            self._add_legend(m, color_metric, vmin, vmax)
+        else:
             folium.PolyLine(
-                locations=[coords[i], coords[i + 1]],
-                color=color,
-                weight=4,
-                opacity=0.8
+                list(zip(latitudes, longitudes)),
+                color='blue',
+                weight=4
             ).add_to(m)
         
-        # Kompakte Legende
-        add_legend(m, color_metric, vmin, vmax)
-    else:
-        # Einfache Route
+        self._add_start_end_markers(m, latitudes, longitudes)
+        
+        bounds = [[lat.min(), lon.min()], [lat.max(), lon.max()]]
+        m.fit_bounds(bounds, padding=padding)
+        
+        return m
+    
+    def _create_simple_map(self, lat, lon):
+        """Erstellt einfache Karte ohne Farbkodierung"""
+        latitudes = lat.values
+        longitudes = lon.values
+        
+        padding = self._calculate_optimal_padding(lat, lon)
+        
+        m = folium.Map(
+            zoom_control=False,
+            scrollWheelZoom=False,
+            doubleClickZoom=False,
+            touchZoom=False,
+            boxZoom=False,
+            keyboard=False,
+            dragging=True,
+            prefer_canvas=True
+        )
+        
         folium.PolyLine(
             list(zip(latitudes, longitudes)),
             color='blue',
             weight=4
         ).add_to(m)
-    
-    # Start/End Marker
-    add_start_end_markers(m, latitudes, longitudes)
-    
-    # ✅ Automatische Anpassung der Kartenansicht auf die gesamte Route
-    bounds = [[lat.min(), lon.min()], [lat.max(), lon.max()]]
-    m.fit_bounds(bounds, padding=padding)
-    
-    return m
-
-def plot_gpx_folium_simple(lat, lon):
-    """Einfache Folium-Karte ohne Farbkodierung mit Auto-Fit"""
-    latitudes = lat.values
-    longitudes = lon.values
-    
-    # Berechne optimales Padding
-    padding = calculate_optimal_padding(lat, lon)
-    
-    # Karte ohne Zoom-Kontrollen
-    m = folium.Map(
-        zoom_control=False,
-        scrollWheelZoom=False,
-        doubleClickZoom=False,
-        touchZoom=False,
-        boxZoom=False,
-        keyboard=False,
-        dragging=True,
-        prefer_canvas=True
-    )
-    
-    folium.PolyLine(
-        list(zip(latitudes, longitudes)),
-        color='blue',
-        weight=4
-    ).add_to(m)
-    
-    add_start_end_markers(m, latitudes, longitudes)
-    
-    # ✅ Automatische Anpassung der Kartenansicht
-    bounds = [[lat.min(), lon.min()], [lat.max(), lon.max()]]
-    m.fit_bounds(bounds, padding=padding)
-    
-    return m
-
-def add_legend(m, metric, vmin, vmax):
-    """Fügt Legende zur Karte hinzu"""
-    metric_label = AVAILABLE_METRICS.get(metric, metric)
-    legend_html = f'''
-    <div style="position: fixed; bottom: 50px; left: 50px; width: 150px; height: 90px; 
-                background-color: white; border:2px solid grey; z-index:9999; 
-                font-size:14px; padding: 10px; border-radius: 5px;">
-    <p><b>{metric_label}</b></p>
-    <p>Min: {vmin:.1f}</p>
-    <p>Max: {vmax:.1f}</p>
-    </div>
-    '''
-    m.get_root().html.add_child(folium.Element(legend_html))
-
-def add_start_end_markers(m, latitudes, longitudes):
-    """Fügt Start- und End-Marker hinzu"""
-    folium.Marker(
-        [latitudes[0], longitudes[0]],
-        popup="Start",
-        icon=folium.Icon(color='green', icon='play')
-    ).add_to(m)
-    
-    folium.Marker(
-        [latitudes[-1], longitudes[-1]],
-        popup="Ende",
-        icon=folium.Icon(color='red', icon='stop')
-    ).add_to(m)
-
-# Backward compatibility
-def plot_gpx_folium(df):
-    """Backward compatibility wrapper"""
-    lat, lon, _ = get_lat_lon_optimized(df)
-    if lat is None or len(lat) < 2:
-        return None
-    return plot_gpx_folium_simple(lat, lon)
-
-if __name__ == "__main__":
-    import os
-    fit_file_path = 'data/fit_file/pillersee.fit'
-    
-    if os.path.exists(fit_file_path):
-        with open(fit_file_path, 'rb') as f:
-            df = read_fit_file(f)
         
-        # GPX-Plot erstellen
-        m = plot_gpx_folium_colored(df, 'altitude')
-        if m:
-            m.save('gpx_test.html')
-            print("✅ GPX-Plot erstellt: gpx_test.html")
+        self._add_start_end_markers(m, latitudes, longitudes)
+        
+        bounds = [[lat.min(), lon.min()], [lat.max(), lon.max()]]
+        m.fit_bounds(bounds, padding=padding)
+        
+        return m
+    
+    def _calculate_optimal_padding(self, lat, lon):
+        """Berechnet optimales Padding für die Karte"""
+        lat_range = lat.max() - lat.min()
+        lon_range = lon.max() - lon.min()
+        
+        if lat_range < 0.01 and lon_range < 0.01:
+            return [50, 50]
+        elif lat_range < 0.1 and lon_range < 0.1:
+            return [30, 30]
         else:
-            print("❌ Kein GPX-Plot möglich")
-    else:
-        print(f"❌ Datei nicht gefunden: {fit_file_path}")
+            return [20, 20]
+    
+    def _add_legend(self, m, metric, vmin, vmax):
+        """Fügt Legende zur Karte hinzu"""
+        metric_label = self.AVAILABLE_METRICS.get(metric, metric)
+        legend_html = f'''
+        <div style="position: fixed; bottom: 50px; left: 50px; width: 150px; height: 90px; 
+                    background-color: white; border:2px solid grey; z-index:9999; 
+                    font-size:14px; padding: 10px; border-radius: 5px;">
+        <p><b>{metric_label}</b></p>
+        <p>Min: {vmin:.1f}</p>
+        <p>Max: {vmax:.1f}</p>
+        </div>
+        '''
+        m.get_root().html.add_child(folium.Element(legend_html))
+    
+    def _add_start_end_markers(self, m, latitudes, longitudes):
+        """Fügt Start- und End-Marker hinzu"""
+        folium.Marker(
+            [latitudes[0], longitudes[0]],
+            popup="Start",
+            icon=folium.Icon(color='green', icon='play')
+        ).add_to(m)
+        
+        folium.Marker(
+            [latitudes[-1], longitudes[-1]],
+            popup="Ende",
+            icon=folium.Icon(color='red', icon='stop')
+        ).add_to(m)
+    
+    def is_valid(self):
+        """Prüft ob die Daten gültig sind"""
+        return not self.df.empty
+    

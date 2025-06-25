@@ -336,7 +336,7 @@ with tab4:
     for key, default in [
         ('fitfile_submitted', False),
         ('last_file', None),
-        ('cached_df', None),
+        ('cached_analyzer', None),
         ('cached_filename', None)
     ]:
         if key not in st.session_state:
@@ -351,7 +351,7 @@ with tab4:
         st.session_state.update({
             'fitfile_submitted': False,
             'last_file': uploaded_fit_file,
-            'cached_df': None,
+            'cached_analyzer': None,
             'cached_filename': None
         })
 
@@ -361,141 +361,92 @@ with tab4:
     if uploaded_fit_file is not None and st.session_state['fitfile_submitted']:
         # Caching für bessere Performance
         current_filename = uploaded_fit_file.name
-        if (st.session_state['cached_df'] is None or 
+        if (st.session_state['cached_analyzer'] is None or 
             st.session_state['cached_filename'] != current_filename):
             
             with st.spinner("FIT-Datei wird verarbeitet..."):
-                df = read_fit_file.read_fit_file(uploaded_fit_file)
-                st.session_state['cached_df'] = df
+                from read_fit_file import FitFileAnalyzer
+                analyzer = FitFileAnalyzer(uploaded_fit_file)
+                st.session_state['cached_analyzer'] = analyzer
                 st.session_state['cached_filename'] = current_filename
         else:
-            df = st.session_state['cached_df']
+            analyzer = st.session_state['cached_analyzer']
 
-        if df.empty:
+        if not analyzer.is_valid():
             st.error("Keine Daten in der FIT-Datei gefunden.")
         else:
-            duration_hours = read_fit_file.calculate_workout_duration_hours(df)
+            # Workout-Zeit anzeigen
+            st.write(f"⏱️ **Workout-Dauer:** {analyzer.format_duration()}")
 
-            # ✅ Zeit-Formatierung hinzufügen
-            def format_duration(hours):
-                """Formatiert Stunden in lesbares Format"""
-                total_minutes = int(hours * 60)
-                hours_part = total_minutes // 60
-                minutes_part = total_minutes % 60
+            # Sportartspezifische Statistiken
+            stats = analyzer.get_sport_statistics(selected_sport)
+            
+            for label, data in stats.items():
+                st.write(f"📊 **{label}:** {data['value']:.2f} {data['unit']}")
                 
-                if hours_part > 0:
-                    return f"{hours_part}h {minutes_part}min"
-                else:
-                    return f"{minutes_part}min"
+                # Geschwindigkeitsberechnung für Distanz-Metriken
+                if data['metric'] == 'distance':
+                    speed_metric = analyzer.calculate_speed_metrics(
+                        selected_sport, data['value'], data['unit']
+                    )
+                    if speed_metric:
+                        icon = "🚴" if selected_sport == "Radfahren" else "🏊" if selected_sport == "Schwimmen" else "🏃"
+                        st.write(f"{icon} **{speed_metric['label']}:** {speed_metric['value']} {speed_metric['unit']}")
 
-            # ✅ Workout-Zeit anzeigen
-            st.write(f"⏱️ **Workout-Dauer:** {format_duration(duration_hours)}")
+            # Herzfrequenz-Statistiken
+            hr_stats = analyzer.get_heart_rate_stats()
+            if hr_stats:
+                st.write(f"❤️ **Durchschnittspuls:** {hr_stats['avg']:.0f} bpm (Max: {hr_stats['max']:.0f} bpm)")
 
-            # Sportartspezifische Auswertung mit Zeit
-            sport_metrics = {
-                "Radfahren": [
-                    ('power', 'W', 'Durchschnittliche Leistung'), 
-                    ('distance', 'km', 'Gefahrene Distanz', 1000)
-                ],
-                "Laufen": [
-                    ('distance', 'km', 'Gelaufene Distanz', 1000)
-                ],
-                "Schwimmen": [
-                    ('distance', 'm', 'Geschwommene Distanz')
-                ],
-                "Sonstiges": [
-                    ('distance', 'm', 'Distanz')
-                ]
-            }
-
-            # ✅ Sportart-spezifische Metriken mit Geschwindigkeitsberechnung
-            metrics_found = False
-            for metric, unit, label, *divisor in sport_metrics.get(selected_sport, []):
-                if metric in df and not df[metric].isna().all():
-                    value = df[metric].mean() if metric == 'power' else df[metric].max()
-                    if divisor:
-                        value /= divisor[0]
-                    st.write(f"📊 **{label}:** {value:.2f} {unit}")
-                    
-                    # ✅ Geschwindigkeit berechnen (nur für Distanz-Metriken)
-                    if metric == 'distance' and duration_hours > 0:
-                        if unit == 'km':
-                            speed = value / duration_hours
-                            st.write(f"🚴 **Durchschnittsgeschwindigkeit:** {speed:.2f} km/h")
-                        elif unit == 'm' and selected_sport == "Schwimmen":
-                            # Schwimm-Pace in min/100m
-                            pace_per_100m = (duration_hours * 60) / (value / 100)
-                            st.write(f"🏊 **Pace:** {pace_per_100m:.2f} min/100m")
-                        elif unit == 'm' and selected_sport == "Laufen":
-                            # Lauf-Pace in min/km
-                            distance_km = value / 1000
-                            pace_per_km = (duration_hours * 60) / distance_km
-                            pace_minutes = int(pace_per_km)
-                            pace_seconds = int((pace_per_km - pace_minutes) * 60)
-                            st.write(f"🏃 **Pace:** {pace_minutes}:{pace_seconds:02d} min/km")
-                    
-                    metrics_found = True
-
-            # ✅ Zusätzliche Zeit-basierte Statistiken
-            if 'heart_rate' in df and not df['heart_rate'].isna().all():
-                avg_hr = df['heart_rate'].mean()
-                max_hr = df['heart_rate'].max()
-                st.write(f"❤️ **Durchschnittspuls:** {avg_hr:.0f} bpm (Max: {max_hr:.0f} bpm)")
-
-            if 'altitude' in df and not df['altitude'].isna().all():
-                elevation_gain = (df['altitude'].diff().clip(lower=0)).sum()
-                st.write(f"⛰️ **Höhenmeter bergauf:** {elevation_gain:.0f} m")
+            # Höhenmeter
+            elevation = analyzer.get_elevation_gain()
+            if elevation:
+                st.write(f"⛰️ **Höhenmeter bergauf:** {elevation:.0f} m")
 
             # Plots in Spalten
             col1, col2 = st.columns(2)
             
             with col1:
-                fig_hr = read_fit_file.plot_heart_rate(df, duration_hours)
+                fig_hr = analyzer.create_heart_rate_plot()
                 if fig_hr:
                     st.plotly_chart(fig_hr, use_container_width=True)
 
             with col2:
-                fig_alt = read_fit_file.plot_altitude(df, duration_hours)
+                fig_alt = analyzer.create_altitude_plot()
                 if fig_alt:
                     st.plotly_chart(fig_alt, use_container_width=True)
 
-            # GPS-Karte mit Loading-State
+            # GPS-Karte
             st.subheader("📍 GPS-Route")
 
-            # Loading-Indikator für GPS-Verarbeitung
-            with st.spinner("GPS-Daten werden verarbeitet..."):
-                available_metrics = read_fit_file.get_available_metrics(df)
-
-            # Nur eine UI-Instanz nach dem Laden
-            if available_metrics:
+            if analyzer.available_metrics:
                 col1, col2 = st.columns([1, 2])
                 
                 with col1:
                     selected_metric = st.selectbox(
                         "Farbkodierung nach:",
-                        options=list(available_metrics.keys()),
-                        format_func=lambda x: available_metrics[x],
+                        options=list(analyzer.available_metrics.keys()),
+                        format_func=lambda x: analyzer.available_metrics[x],
                         key="color_metric",
                         index=0
                     )
                 
                 with col2:
-                    # Conditional rendering um Duplikate zu vermeiden
                     if 'color_metric' in st.session_state:
-                        metric_label = available_metrics[st.session_state['color_metric']]
+                        metric_label = analyzer.available_metrics[st.session_state['color_metric']]
                         st.info(f"Route eingefärbt nach: **{metric_label}**")
                 
-                # Karte nur einmal rendern
+                # Karte erstellen
                 if 'color_metric' in st.session_state:
                     with st.spinner("Karte wird erstellt..."):
-                        m = read_fit_file.plot_gpx_folium_colored(df, st.session_state['color_metric'])
+                        m = analyzer.create_gps_map(st.session_state['color_metric'])
                 else:
                     with st.spinner("Karte wird erstellt..."):
-                        m = read_fit_file.plot_gpx_folium(df)
+                        m = analyzer.create_gps_map()
             else:
                 st.warning("Keine Metriken für Farbkodierung verfügbar")
                 with st.spinner("Karte wird erstellt..."):
-                    m = read_fit_file.plot_gpx_folium(df)
+                    m = analyzer.create_gps_map()
             
             if m:
                 from streamlit_folium import st_folium
@@ -505,6 +456,7 @@ with tab4:
                 
     else:
         st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
+
 
 
 # Tab 5: Neue Person hinzufügen
