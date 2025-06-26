@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import folium
 import matplotlib.cm as cm
 import matplotlib.colors as colors
-from functools import lru_cache
 from datetime import timedelta
 
 class FitFileAnalyzer:
@@ -18,22 +17,6 @@ class FitFileAnalyzer:
         'heart_rate': 'Herzfrequenz', 
         'speed': 'Geschwindigkeit',
         'power': 'Leistung'
-    }
-    
-    SPORT_METRICS = {
-        "Radfahren": [
-            ('power', 'W', 'Durchschnittliche Leistung'), 
-            ('distance', 'km', 'Gefahrene Distanz', 1000)
-        ],
-        "Laufen": [
-            ('distance', 'km', 'Gelaufene Distanz', 1000)
-        ],
-        "Schwimmen": [
-            ('distance', 'm', 'Geschwommene Distanz')
-        ],
-        "Sonstiges": [
-            ('distance', 'm', 'Distanz')
-        ]
     }
     
     def __init__(self, fit_file):
@@ -93,49 +76,159 @@ class FitFileAnalyzer:
         else:
             return f"{minutes_part}min"
     
-    def get_sport_statistics(self, sport_type):
-        """Berechnet sportartspezifische Statistiken"""
-        stats = {}
+    def get_cycling_statistics(self):
+        """Radfahren-spezifische Statistiken"""
+        stats = []
         
-        for metric_config in self.SPORT_METRICS.get(sport_type, []):
-            metric = metric_config[0]
-            unit = metric_config[1]
-            label = metric_config[2]
-            divisor = metric_config[3] if len(metric_config) > 3 else 1
-            
-            if metric in self.df and not self.df[metric].isna().all():
-                value = self.df[metric].mean() if metric == 'power' else self.df[metric].max()
-                value /= divisor
-                stats[label] = {'value': value, 'unit': unit, 'metric': metric}
+        # Distanz
+        if 'distance' in self.df.columns and not self.df['distance'].isna().all():
+            dist = self.df['distance'].max() / 1000
+            stats.append(f"🚴 **Distanz:** {dist:.2f} km")
+        
+        # Geschwindigkeit
+        if 'speed' in self.df.columns and not self.df['speed'].isna().all():
+            avg_speed = self.df['speed'].mean() * 3.6
+            max_speed = self.df['speed'].max() * 3.6
+            stats.append(f"⚡ **Durchschnittsgeschwindigkeit:** {avg_speed:.2f} km/h")
+            stats.append(f"🏁 **Max. Geschwindigkeit:** {max_speed:.2f} km/h")
+        
+        # Leistung
+        if 'power' in self.df.columns and not self.df['power'].isna().all():
+            avg_power = self.df['power'].mean()
+            max_power = self.df['power'].max()
+            stats.append(f"🔋 **Durchschnittliche Leistung:** {avg_power:.0f} W")
+            stats.append(f"🔋 **Maximale Leistung:** {max_power:.0f} W")
+        
+        # Kadenz (Trittfrequenz)
+        if 'cadence' in self.df.columns and not self.df['cadence'].isna().all():
+            avg_cad = self.df['cadence'].mean()
+            stats.append(f"🔄 **Durchschnittliche Kadenz:** {avg_cad:.0f} rpm")
+        
+        # Kalorien
+        if 'calories' in self.df.columns and not self.df['calories'].isna().all():
+            calories = self.df['calories'].max()
+            stats.append(f"🔥 **Kalorien:** {calories:.0f} kcal")
         
         return stats
     
-    def calculate_speed_metrics(self, sport_type, distance_value, distance_unit):
-        """Berechnet Geschwindigkeits- und Pace-Metriken"""
-        if self.duration_hours <= 0:
-            return None
+    def get_running_statistics(self):
+        """Laufen-spezifische Statistiken"""
+        stats = []
         
-        if distance_unit == 'km':
-            speed = distance_value / self.duration_hours
-            return {'type': 'speed', 'value': speed, 'unit': 'km/h', 'label': 'Durchschnittsgeschwindigkeit'}
-        
-        elif distance_unit == 'm':
-            if sport_type == "Schwimmen":
-                pace_per_100m = (self.duration_hours * 60) / (distance_value / 100)
-                return {'type': 'pace', 'value': pace_per_100m, 'unit': 'min/100m', 'label': 'Pace'}
+        # Distanz und Pace
+        if 'distance' in self.df.columns and not self.df['distance'].isna().all():
+            dist = self.df['distance'].max() / 1000
+            stats.append(f"🏃 **Distanz:** {dist:.2f} km")
             
-            elif sport_type == "Laufen":
-                distance_km = distance_value / 1000
-                pace_per_km = (self.duration_hours * 60) / distance_km
-                pace_minutes = int(pace_per_km)
-                pace_seconds = int((pace_per_km - pace_minutes) * 60)
-                return {'type': 'pace', 'value': f"{pace_minutes}:{pace_seconds:02d}", 'unit': 'min/km', 'label': 'Pace'}
+            # Pace berechnen
+            if dist > 0 and self.duration_hours > 0:
+                pace = (self.duration_hours * 60) / dist
+                pace_min = int(pace)
+                pace_sec = int((pace - pace_min) * 60)
+                stats.append(f"⏱️ **Pace:** {pace_min}:{pace_sec:02d} min/km")
         
-        return None
+        # Geschwindigkeit
+        if 'speed' in self.df.columns and not self.df['speed'].isna().all():
+            avg_speed = self.df['speed'].mean() * 3.6
+            max_speed = self.df['speed'].max() * 3.6
+            stats.append(f"⚡ **Durchschnittsgeschwindigkeit:** {avg_speed:.2f} km/h")
+            stats.append(f"🏁 **Max. Geschwindigkeit:** {max_speed:.2f} km/h")
+        
+        # Schrittfrequenz
+        if 'cadence' in self.df.columns and not self.df['cadence'].isna().all():
+            avg_cad = self.df['cadence'].mean()
+            stats.append(f"👟 **Durchschnittliche Schrittfrequenz:** {avg_cad:.0f} spm")
+        
+        # Running Power
+        if 'power' in self.df.columns and not self.df['power'].isna().all():
+            avg_power = self.df['power'].mean()
+            stats.append(f"⚡ **Running Power:** {avg_power:.0f} W")
+        
+        # Running Dynamics
+        if 'vertical_oscillation' in self.df.columns and not self.df['vertical_oscillation'].isna().all():
+            vo = self.df['vertical_oscillation'].mean()
+            stats.append(f"📈 **Vertikale Oszillation:** {vo:.2f} mm")
+        
+        if 'ground_contact_time' in self.df.columns and not self.df['ground_contact_time'].isna().all():
+            gct = self.df['ground_contact_time'].mean()
+            stats.append(f"📈 **Bodenkontaktzeit:** {gct:.2f} ms")
+        
+        if 'stride_length' in self.df.columns and not self.df['stride_length'].isna().all():
+            sl = self.df['stride_length'].mean()
+            stats.append(f"📈 **Schrittlänge:** {sl:.2f} m")
+        
+        # Kalorien
+        if 'calories' in self.df.columns and not self.df['calories'].isna().all():
+            calories = self.df['calories'].max()
+            stats.append(f"🔥 **Kalorien:** {calories:.0f} kcal")
+        
+        return stats
+    
+    def get_swimming_statistics(self):
+        """Schwimmen-spezifische Statistiken"""
+        stats = []
+        
+        # Distanz und Pace
+        if 'distance' in self.df.columns and not self.df['distance'].isna().all():
+            dist = self.df['distance'].max()
+            stats.append(f"🏊 **Distanz:** {dist:.0f} m")
+            
+            # Schwimm-Pace
+            if dist > 0 and self.duration_hours > 0:
+                pace = (self.duration_hours * 60) / (dist / 100)
+                stats.append(f"⏱️ **Pace:** {pace:.2f} min/100m")
+        
+        # Schwimmzüge
+        if 'total_strokes' in self.df.columns and not self.df['total_strokes'].isna().all():
+            avg_strokes = self.df['total_strokes'].mean()
+            stats.append(f"💦 **Durchschnittliche Züge:** {avg_strokes:.1f}")
+        
+        # SWOLF (Schwimmeffizienz)
+        if 'swolf' in self.df.columns and not self.df['swolf'].isna().all():
+            avg_swolf = self.df['swolf'].mean()
+            stats.append(f"🔢 **Durchschnittlicher SWOLF:** {avg_swolf:.1f}")
+        
+        # Schwimmstil
+        if 'swim_stroke' in self.df.columns and not self.df['swim_stroke'].isna().all():
+            unique_strokes = self.df['swim_stroke'].unique()
+            stroke_names = {
+                0: "Freistil",
+                1: "Rückenschwimmen", 
+                2: "Brustschwimmen",
+                3: "Schmetterling",
+                4: "Drill",
+                5: "Mixed"
+            }
+            strokes = [stroke_names.get(s, f"Stil {s}") for s in unique_strokes if not pd.isna(s)]
+            if strokes:
+                stats.append(f"🏊‍♂️ **Schwimmstil(e):** {', '.join(strokes)}")
+        
+        # Kalorien
+        if 'calories' in self.df.columns and not self.df['calories'].isna().all():
+            calories = self.df['calories'].max()
+            stats.append(f"🔥 **Kalorien:** {calories:.0f} kcal")
+        
+        return stats
+    
+    def get_sport_statistics(self, sport_type):
+        """Berechnet sportartspezifische Statistiken"""
+        if sport_type == "Radfahren":
+            return self.get_cycling_statistics()
+        elif sport_type == "Laufen":
+            return self.get_running_statistics()
+        elif sport_type == "Schwimmen":
+            return self.get_swimming_statistics()
+        else:
+            # Fallback für "Sonstiges"
+            stats = []
+            if 'distance' in self.df.columns and not self.df['distance'].isna().all():
+                dist = self.df['distance'].max()
+                stats.append(f"📊 **Distanz:** {dist:.0f} m")
+            return stats
     
     def get_heart_rate_stats(self):
         """Berechnet Herzfrequenz-Statistiken"""
-        if 'heart_rate' not in self.df or self.df['heart_rate'].isna().all():
+        if 'heart_rate' not in self.df.columns or self.df['heart_rate'].isna().all():
             return None
         
         return {
@@ -145,7 +238,7 @@ class FitFileAnalyzer:
     
     def get_elevation_gain(self):
         """Berechnet Höhenmeter bergauf"""
-        if 'altitude' not in self.df or self.df['altitude'].isna().all():
+        if 'altitude' not in self.df.columns or self.df['altitude'].isna().all():
             return None
         
         return (self.df['altitude'].diff().clip(lower=0)).sum()
@@ -160,10 +253,10 @@ class FitFileAnalyzer:
     
     def _create_time_plot(self, column, title, y_label):
         """Generische Funktion für Zeit-basierte Plots"""
-        if column not in self.df or self.df[column].isna().all():
+        if column not in self.df.columns or self.df[column].isna().all():
             return None
         
-        time_data = self.df['time_seconds'] if 'time_seconds' in self.df else np.arange(len(self.df))
+        time_data = self.df['time_seconds'] if 'time_seconds' in self.df.columns else np.arange(len(self.df))
         
         # Zeitachse skalieren
         if self.duration_hours > 2:
@@ -203,10 +296,10 @@ class FitFileAnalyzer:
         """Optimierte GPS-Koordinaten Extraktion"""
         lat, lon = None, None
         
-        if 'enhanced_position_lat' in self.df and 'enhanced_position_long' in self.df:
+        if 'enhanced_position_lat' in self.df.columns and 'enhanced_position_long' in self.df.columns:
             lat = self.df['enhanced_position_lat']
             lon = self.df['enhanced_position_long']
-        elif 'position_lat' in self.df and 'position_long' in self.df:
+        elif 'position_lat' in self.df.columns and 'position_long' in self.df.columns:
             lat = self.df['position_lat'] * self.SEMICIRCLE_TO_DEGREE
             lon = self.df['position_long'] * self.SEMICIRCLE_TO_DEGREE
         else:
@@ -372,14 +465,28 @@ class FitFileAnalyzer:
         return not self.df.empty
 
 
-# Backward compatibility - alte Funktionen für bestehenden Code
-def read_fit_file(file):
-    """Wrapper-Funktion für Backward Compatibility"""
-    analyzer = FitFileAnalyzer(file)
-    return analyzer.df
-
-def calculate_workout_duration_hours(df):
-    """Wrapper-Funktion für Backward Compatibility"""
-    if 'time_seconds' not in df or df.empty:
-        return 0
-    return (df['time_seconds'].iloc[-1] - df['time_seconds'].iloc[0]) / 3600
+if __name__ == "__main__":
+    import os
+    fit_file_path = 'data/fit_file/test.fit'
+    
+    if os.path.exists(fit_file_path):
+        with open(fit_file_path, 'rb') as f:
+            analyzer = FitFileAnalyzer(f)
+        
+        print("✅ FitFileAnalyzer Test:")
+        print(f"Dauer: {analyzer.format_duration()}")
+        print(f"Verfügbare Metriken: {list(analyzer.available_metrics.keys())}")
+        
+        # Test sportartspezifische Statistiken
+        cycling_stats = analyzer.get_cycling_statistics()
+        print(f"Radfahren-Statistiken: {len(cycling_stats)} Einträge")
+        
+        # GPS-Plot erstellen
+        m = analyzer.create_gps_map('altitude')
+        if m:
+            m.save('gpx_test.html')
+            print("✅ GPX-Plot erstellt: gpx_test.html")
+        else:
+            print("❌ Kein GPX-Plot möglich")
+    else:
+        print(f"❌ Datei nicht gefunden: {fit_file_path}")

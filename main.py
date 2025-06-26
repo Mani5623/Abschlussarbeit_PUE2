@@ -375,90 +375,326 @@ with tab4:
         if not analyzer.is_valid():
             st.error("Keine Daten in der FIT-Datei gefunden.")
         else:
-            # Workout-Zeit anzeigen
-            st.write(f"⏱️ **Workout-Dauer:** {analyzer.format_duration()}")
-
-            # Sportartspezifische Statistiken
-            stats = analyzer.get_sport_statistics(selected_sport)
+            # Workout-Übersicht
+            st.subheader("📊 Workout-Übersicht")
             
-            for label, data in stats.items():
-                st.write(f"📊 **{label}:** {data['value']:.2f} {data['unit']}")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("⏱️ Dauer", analyzer.format_duration())
+            
+            with col2:
+                if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                    dist = analyzer.df['distance'].max() / 1000
+                    st.metric("📏 Distanz", f"{dist:.2f} km")
+                else:
+                    st.metric("📏 Distanz", "N/A")
+            
+            with col3:
+                hr_stats = analyzer.get_heart_rate_stats()
+                if hr_stats:
+                    st.metric("❤️ Ø Puls", f"{hr_stats['avg']:.0f} bpm", f"Max: {hr_stats['max']:.0f}")
+                else:
+                    st.metric("❤️ Puls", "N/A")
+            
+            with col4:
+                if 'calories' in analyzer.df.columns and not analyzer.df['calories'].isna().all():
+                    calories = analyzer.df['calories'].max()
+                    st.metric("🔥 Kalorien", f"{calories:.0f} kcal")
+                else:
+                    st.metric("🔥 Kalorien", "N/A")
+
+            st.divider()
+
+            # Sportartspezifische Dashboards
+            if selected_sport == "Radfahren":
+                st.subheader("🚴 Radfahren-Dashboard")
                 
-                # Geschwindigkeitsberechnung für Distanz-Metriken
-                if data['metric'] == 'distance':
-                    speed_metric = analyzer.calculate_speed_metrics(
-                        selected_sport, data['value'], data['unit']
-                    )
-                    if speed_metric:
-                        icon = "🚴" if selected_sport == "Radfahren" else "🏊" if selected_sport == "Schwimmen" else "🏃"
-                        st.write(f"{icon} **{speed_metric['label']}:** {speed_metric['value']} {speed_metric['unit']}")
+                # Hauptmetriken für Radfahren
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if 'speed' in analyzer.df.columns and not analyzer.df['speed'].isna().all():
+                        avg_speed = analyzer.df['speed'].mean() * 3.6
+                        max_speed = analyzer.df['speed'].max() * 3.6
+                        st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h", f"Max: {max_speed:.1f}")
+                    else:
+                        st.metric("⚡ Geschwindigkeit", "N/A")
+                
+                with col2:
+                    if 'power' in analyzer.df.columns and not analyzer.df['power'].isna().all():
+                        avg_power = analyzer.df['power'].mean()
+                        max_power = analyzer.df['power'].max()
+                        st.metric("🔋 Leistung", f"{avg_power:.0f} W", f"Max: {max_power:.0f}")
+                    else:
+                        st.metric("🔋 Leistung", "N/A")
+                
+                with col3:
+                    if 'cadence' in analyzer.df.columns and not analyzer.df['cadence'].isna().all():
+                        avg_cad = analyzer.df['cadence'].mean()
+                        st.metric("🔄 Kadenz", f"{avg_cad:.0f} rpm")
+                    else:
+                        st.metric("🔄 Kadenz", "N/A")
+                
+                with col4:
+                    if selected_sport in ["Radfahren", "Laufen"]:
+                        elevation = analyzer.get_elevation_gain()
+                        if elevation:
+                            st.metric("⛰️ Höhenmeter", f"{elevation:.0f} m")
+                        else:
+                            st.metric("⛰️ Höhenmeter", "N/A")
 
-            # Herzfrequenz-Statistiken
-            hr_stats = analyzer.get_heart_rate_stats()
+            elif selected_sport == "Laufen":
+                st.subheader("🏃 Laufen-Dashboard")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if 'speed' in analyzer.df.columns and not analyzer.df['speed'].isna().all():
+                        avg_speed = analyzer.df['speed'].mean() * 3.6
+                        st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h")
+                    else:
+                        st.metric("⚡ Geschwindigkeit", "N/A")
+                
+                with col2:
+                    if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                        dist = analyzer.df['distance'].max() / 1000
+                        if dist > 0 and analyzer.duration_hours > 0:
+                            pace = (analyzer.duration_hours * 60) / dist
+                            pace_min = int(pace)
+                            pace_sec = int((pace - pace_min) * 60)
+                            st.metric("⏱️ Pace", f"{pace_min}:{pace_sec:02d} min/km")
+                        else:
+                            st.metric("⏱️ Pace", "N/A")
+                    else:
+                        st.metric("⏱️ Pace", "N/A")
+                
+                with col3:
+                    if 'cadence' in analyzer.df.columns and not analyzer.df['cadence'].isna().all():
+                        avg_cad = analyzer.df['cadence'].mean()
+                        st.metric("👟 Schrittfrequenz", f"{avg_cad:.0f} spm")
+                    else:
+                        st.metric("👟 Schrittfrequenz", "N/A")
+                
+                with col4:
+                    elevation = analyzer.get_elevation_gain()
+                    if elevation:
+                        st.metric("⛰️ Höhenmeter", f"{elevation:.0f} m")
+                    else:
+                        st.metric("⛰️ Höhenmeter", "N/A")
+
+            elif selected_sport == "Schwimmen":
+                st.subheader("🏊 Schwimmen-Dashboard")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                        dist = analyzer.df['distance'].max()
+                        st.metric("🏊 Distanz", f"{dist:.0f} m")
+                    else:
+                        st.metric("🏊 Distanz", "N/A")
+                
+                with col2:
+                    if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                        dist = analyzer.df['distance'].max()
+                        if dist > 0 and analyzer.duration_hours > 0:
+                            pace = (analyzer.duration_hours * 60) / (dist / 100)
+                            st.metric("⏱️ Pace", f"{pace:.2f} min/100m")
+                        else:
+                            st.metric("⏱️ Pace", "N/A")
+                    else:
+                        st.metric("⏱️ Pace", "N/A")
+                
+                with col3:
+                    if 'total_strokes' in analyzer.df.columns and not analyzer.df['total_strokes'].isna().all():
+                        avg_strokes = analyzer.df['total_strokes'].mean()
+                        st.metric("💦 Züge", f"{avg_strokes:.1f}")
+                    else:
+                        st.metric("💦 Züge", "N/A")
+                
+                with col4:
+                    if 'swolf' in analyzer.df.columns and not analyzer.df['swolf'].isna().all():
+                        avg_swolf = analyzer.df['swolf'].mean()
+                        st.metric("🔢 SWOLF", f"{avg_swolf:.1f}")
+                    else:
+                        st.metric("🔢 SWOLF", "N/A")
+
+            # Herzfrequenz-Zonen Analyse
             if hr_stats:
-                st.write(f"❤️ **Durchschnittspuls:** {hr_stats['avg']:.0f} bpm (Max: {hr_stats['max']:.0f} bpm)")
+                st.subheader("❤️ Herzfrequenz-Zonen")
+                
+                # Beispiel für 30-jährige Person - könnte aus Personendaten kommen
+                max_hr_theoretical = 220 - 30
+                
+                zones = {
+                    "Zone 1 (Regeneration)": (0.5 * max_hr_theoretical, 0.6 * max_hr_theoretical, "#4CAF50"),
+                    "Zone 2 (Grundlagenausdauer)": (0.6 * max_hr_theoretical, 0.7 * max_hr_theoretical, "#FFEB3B"),
+                    "Zone 3 (Aerobe Schwelle)": (0.7 * max_hr_theoretical, 0.8 * max_hr_theoretical, "#FF9800"),
+                    "Zone 4 (Anaerobe Schwelle)": (0.8 * max_hr_theoretical, 0.9 * max_hr_theoretical, "#F44336"),
+                    "Zone 5 (Neuromuskuläre Leistung)": (0.9 * max_hr_theoretical, max_hr_theoretical, "#9C27B0")
+                }
+                
+                for zone_name, (min_hr, max_hr, color) in zones.items():
+                    if 'heart_rate' in analyzer.df.columns:
+                        time_in_zone = len(analyzer.df[
+                            (analyzer.df['heart_rate'] >= min_hr) & 
+                            (analyzer.df['heart_rate'] <= max_hr)
+                        ]) / len(analyzer.df) * 100
+                        
+                        st.progress(time_in_zone / 100, text=f"{zone_name}: {time_in_zone:.1f}%")
 
-            # Höhenmeter
-            elevation = analyzer.get_elevation_gain()
-            if elevation:
-                st.write(f"⛰️ **Höhenmeter bergauf:** {elevation:.0f} m")
+            st.divider()
+
+            # Detaillierte Statistiken in Expandern
+            with st.expander("📈 Detaillierte Statistiken", expanded=False):
+                sport_stats = analyzer.get_sport_statistics(selected_sport)
+                
+                # Zeige Statistiken in Spalten
+                if sport_stats:
+                    cols = st.columns(2)
+                    for i, stat in enumerate(sport_stats):
+                        with cols[i % 2]:
+                            st.write(stat)
+
+            # Running Dynamics für Laufen
+            if selected_sport == "Laufen":
+                with st.expander("🏃 Running Dynamics", expanded=False):
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        if 'vertical_oscillation' in analyzer.df.columns and not analyzer.df['vertical_oscillation'].isna().all():
+                            vo = analyzer.df['vertical_oscillation'].mean()
+                            st.metric("📈 Vertikale Oszillation", f"{vo:.2f} mm")
+                    
+                    with col2:
+                        if 'ground_contact_time' in analyzer.df.columns and not analyzer.df['ground_contact_time'].isna().all():
+                            gct = analyzer.df['ground_contact_time'].mean()
+                            st.metric("📈 Bodenkontaktzeit", f"{gct:.2f} ms")
+                    
+                    with col3:
+                        if 'stride_length' in analyzer.df.columns and not analyzer.df['stride_length'].isna().all():
+                            sl = analyzer.df['stride_length'].mean()
+                            st.metric("📈 Schrittlänge", f"{sl:.2f} m")
 
             # Plots in Spalten
+            st.subheader("📊 Verlaufsdiagramme")
             col1, col2 = st.columns(2)
             
             with col1:
                 fig_hr = analyzer.create_heart_rate_plot()
                 if fig_hr:
                     st.plotly_chart(fig_hr, use_container_width=True)
+                else:
+                    st.info("Keine Herzfrequenzdaten verfügbar")
 
             with col2:
                 fig_alt = analyzer.create_altitude_plot()
                 if fig_alt:
                     st.plotly_chart(fig_alt, use_container_width=True)
+                else:
+                    st.info("Keine Höhendaten verfügbar")
 
-            # GPS-Karte
-            st.subheader("📍 GPS-Route")
+            # GPS-Karte nur für Outdoor-Sportarten
+            if selected_sport in ["Radfahren", "Laufen"]:
+                st.subheader("📍 GPS-Route")
 
-            # Farbauswahl mit "Keine Farbe" als Standard
-            color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
+                # Farbauswahl mit "Keine Farbe" als Standard
+                color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
+                
+                col1, col2 = st.columns([1, 2])
+                
+                with col1:
+                    selected_option = st.selectbox(
+                        "Farbkodierung nach:",
+                        options=color_options,
+                        format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
+                        key="color_metric",
+                        index=0  # "Keine Farbe" ist Standard
+                    )
+                
+                with col2:
+                    if selected_option != "Keine Farbe":
+                        metric_label = analyzer.available_metrics[selected_option]
+                        st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
+                    else:
+                        st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
+                
+                # Karte erstellen
+                if selected_option != "Keine Farbe":
+                    with st.spinner("Farbkodierte Karte wird erstellt..."):
+                        m = analyzer.create_gps_map(selected_option)
+                else:
+                    with st.spinner("Karte wird erstellt..."):
+                        m = analyzer.create_gps_map()  # Ohne color_metric = einfache Karte
+                
+                if m:
+                    from streamlit_folium import st_folium
+                    st_folium(m, width=700, height=500)
+                else:
+                    st.warning("Keine GPS-Daten gefunden.")
+
+            # Workout-Bewertung
+            st.subheader("🏆 Workout-Zusammenfassung")
             
-            col1, col2 = st.columns([1, 2])
+            # Berechne eine einfache Bewertung
+            score = 0
+            factors = []
+            
+            if 'power' in analyzer.df.columns and not analyzer.df['power'].isna().all():
+                power_score = min(analyzer.df['power'].mean() / 200 * 25, 25)
+                score += power_score
+                factors.append(f"Leistung: {power_score:.0f}/25")
+            
+            if hr_stats:
+                hr_score = min(hr_stats['avg'] / 150 * 25, 25)
+                score += hr_score
+                factors.append(f"Herzfrequenz: {hr_score:.0f}/25")
+            
+            if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                distance_score = min(analyzer.df['distance'].max() / 50000 * 25, 25)
+                score += distance_score
+                factors.append(f"Distanz: {distance_score:.0f}/25")
+            
+            duration_score = min(analyzer.duration_hours * 25, 25)
+            score += duration_score
+            factors.append(f"Dauer: {duration_score:.0f}/25")
+
+            col1, col2, col3 = st.columns(3)
             
             with col1:
-                selected_option = st.selectbox(
-                    "Farbkodierung nach:",
-                    options=color_options,
-                    format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
-                    key="color_metric",
-                    index=0  # "Keine Farbe" ist Standard
-                )
+                st.metric("🎯 Workout-Score", f"{score:.0f}/100")
             
             with col2:
-                if selected_option != "Keine Farbe":
-                    metric_label = analyzer.available_metrics[selected_option]
-                    st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
+                if score >= 90:
+                    grade = "A+"
+                    grade_color = "🟢"
+                elif score >= 80:
+                    grade = "A"
+                    grade_color = "🟢"
+                elif score >= 70:
+                    grade = "B"
+                    grade_color = "🟡"
+                elif score >= 60:
+                    grade = "C"
+                    grade_color = "🟠"
                 else:
-                    st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
+                    grade = "D"
+                    grade_color = "🔴"
+                
+                st.metric("📝 Bewertung", f"{grade_color} {grade}")
             
-            # Karte erstellen
-            if selected_option != "Keine Farbe":
-                with st.spinner("Farbkodierte Karte wird erstellt..."):
-                    m = analyzer.create_gps_map(selected_option)
-            else:
-                with st.spinner("Karte wird erstellt..."):
-                    m = analyzer.create_gps_map()  # Ohne color_metric = einfache Karte
+            with col3:
+                st.metric("⏱️ Trainingszeit", analyzer.format_duration())
             
-            if m:
-                from streamlit_folium import st_folium
-                st_folium(m, width=700, height=500)
-            else:
-                st.warning("Keine GPS-Daten gefunden.")
+            # Bewertungsdetails
+            with st.expander("🔍 Bewertungsdetails"):
+                for factor in factors:
+                    st.write(f"• {factor}")
                 
     else:
         st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
-
-
-
+        
 # Tab 5: Neue Person hinzufügen
 with tab5:
     st.header("➕ Neue Person hinzufügen")
