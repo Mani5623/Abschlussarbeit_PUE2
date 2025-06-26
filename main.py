@@ -22,7 +22,7 @@ if 'show_add_form' not in st.session_state:
     st.session_state.show_add_form = False
 
 # Erweiterte Tabs mit neuem "Person hinzufügen" Tab
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File", "➕ Person hinzufügen"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File", "➕ Person hinzufügen", "📤 Daten zuordnen & hochladen"])
 
 # Tab 1: Versuchsperson auswählen (ohne "Person hinzufügen" Sektion)
 with tab1:
@@ -694,6 +694,7 @@ with tab4:
                 
     else:
         st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
+
         
 # Tab 5: Neue Person hinzufügen
 with tab5:
@@ -820,3 +821,36 @@ with tab5:
         
         if reset_form:
             st.info("🔄 Formular wurde zurückgesetzt.")
+
+with tab6:
+    st.header("📤 Daten zuordnen & hochladen")
+
+    all_person_names = read_data.get_person_list()
+    selected_name_upload = st.selectbox("Wähle eine Person", all_person_names, key="upload_select")
+
+    if selected_name_upload:
+        selected_person = Person.load_by_name(selected_name_upload)
+
+        st.subheader(f"Daten für: {selected_person.firstname} {selected_person.lastname}")
+
+        uploaded_ekg = st.file_uploader("EKG-Datei (CSV)", type=["csv"], key="upload_ekg_file")
+        uploaded_fit = st.file_uploader("FIT-Datei (.fit)", type=["fit"], key="upload_fit_file")
+
+        if st.button("✅ Hochladen"):
+            results = []
+
+            if uploaded_ekg:
+                success_ekg = selected_person.add_uploaded_file(uploaded_ekg, "ekg")
+                results.append(("EKG", success_ekg))
+            if uploaded_fit:
+                success_fit = selected_person.add_uploaded_file(uploaded_fit, "fit")
+                results.append(("FIT", success_fit))
+
+            if not uploaded_ekg and not uploaded_fit:
+                st.warning("Bitte mindestens eine Datei auswählen.")
+            else:
+                for filetype, success in results:
+                    if success:
+                        st.success(f"{filetype}-Datei erfolgreich hochgeladen.")
+                    else:
+                        st.error(f"{filetype}-Datei konnte nicht gespeichert werden.")
