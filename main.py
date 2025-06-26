@@ -22,7 +22,7 @@ if 'show_add_form' not in st.session_state:
     st.session_state.show_add_form = False
 
 # Erweiterte Tabs mit neuem "Person hinzufügen" Tab
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File", "➕ Person hinzufügen"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File", "➕ Person hinzufügen", "📤 Daten hochladen"])
 
 # Tab 1: Versuchsperson auswählen (ohne "Person hinzufügen" Sektion)
 with tab1:
@@ -329,134 +329,112 @@ with tab3:
             st.error(f"Fehler bei der Auswertung: {e}")
 
 
+import os
+
 with tab4:
     st.header("🏋️ Fit File Analyse")
 
-    # Session State Initialisierung
-    for key, default in [
-        ('fitfile_submitted', False),
-        ('last_file', None),
-        ('cached_analyzer', None),
-        ('cached_filename', None)
-    ]:
-        if key not in st.session_state:
-            st.session_state[key] = default
+    # Personenauswahl für FIT-Dateien
+    person_names = read_data.get_person_list()
+    selected_person_name = st.selectbox("👤 Wähle eine Person", person_names, key="tab4_person_select")
+    selected_person = Person.load_by_name(selected_person_name) if selected_person_name else None
 
-    uploaded_fit_file = st.file_uploader("Lade ein FIT-File hoch", type=["fit"])
-    sportarten = ["Radfahren", "Laufen", "Schwimmen", "Sonstiges"]
-    selected_sport = st.selectbox("Sportart auswählen", options=sportarten)
+    if selected_person and selected_person.fit_files:
+        file_options = {
+            (entry.get("original_name") or entry["filename"]): entry["filename"]
+            for entry in selected_person.fit_files
+        }
 
-    # Reset bei neuer Datei
-    if uploaded_fit_file is not None and st.session_state['last_file'] != uploaded_fit_file:
-        st.session_state.update({
-            'fitfile_submitted': False,
-            'last_file': uploaded_fit_file,
-            'cached_analyzer': None,
-            'cached_filename': None
-        })
+        selected_label = st.selectbox("📂 Wähle eine FIT-Datei", options=list(file_options.keys()))
+        selected_filename = file_options[selected_label]
+        selected_fit_entry = next(
+            (entry for entry in selected_person.fit_files if entry["filename"] == selected_filename), None
+        )
 
-    if st.button("Abschicken"):
-        st.session_state['fitfile_submitted'] = True
+        if selected_fit_entry and st.button("📊 Analyse starten"):
+            file_path = os.path.join("data/uploads", selected_fit_entry["filename"])
+            try:
+                with open(file_path, "rb") as f:
+                    from read_fit_file import FitFileAnalyzer
+                    analyzer = FitFileAnalyzer(f)
 
-    if uploaded_fit_file is not None and st.session_state['fitfile_submitted']:
-        # Caching für bessere Performance
-        current_filename = uploaded_fit_file.name
-        if (st.session_state['cached_analyzer'] is None or 
-            st.session_state['cached_filename'] != current_filename):
-            
-            with st.spinner("FIT-Datei wird verarbeitet..."):
-                from read_fit_file import FitFileAnalyzer
-                analyzer = FitFileAnalyzer(uploaded_fit_file)
-                st.session_state['cached_analyzer'] = analyzer
-                st.session_state['cached_filename'] = current_filename
-        else:
-            analyzer = st.session_state['cached_analyzer']
-
-        if not analyzer.is_valid():
-            st.error("Keine Daten in der FIT-Datei gefunden.")
-        else:
-            # Workout-Zeit anzeigen
-            st.write(f"⏱️ **Workout-Dauer:** {analyzer.format_duration()}")
-
-            # Sportartspezifische Statistiken
-            stats = analyzer.get_sport_statistics(selected_sport)
-            
-            for label, data in stats.items():
-                st.write(f"📊 **{label}:** {data['value']:.2f} {data['unit']}")
-                
-                # Geschwindigkeitsberechnung für Distanz-Metriken
-                if data['metric'] == 'distance':
-                    speed_metric = analyzer.calculate_speed_metrics(
-                        selected_sport, data['value'], data['unit']
-                    )
-                    if speed_metric:
-                        icon = "🚴" if selected_sport == "Radfahren" else "🏊" if selected_sport == "Schwimmen" else "🏃"
-                        st.write(f"{icon} **{speed_metric['label']}:** {speed_metric['value']} {speed_metric['unit']}")
-
-            # Herzfrequenz-Statistiken
-            hr_stats = analyzer.get_heart_rate_stats()
-            if hr_stats:
-                st.write(f"❤️ **Durchschnittspuls:** {hr_stats['avg']:.0f} bpm (Max: {hr_stats['max']:.0f} bpm)")
-
-            # Höhenmeter
-            elevation = analyzer.get_elevation_gain()
-            if elevation:
-                st.write(f"⛰️ **Höhenmeter bergauf:** {elevation:.0f} m")
-
-            # Plots in Spalten
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig_hr = analyzer.create_heart_rate_plot()
-                if fig_hr:
-                    st.plotly_chart(fig_hr, use_container_width=True)
-
-            with col2:
-                fig_alt = analyzer.create_altitude_plot()
-                if fig_alt:
-                    st.plotly_chart(fig_alt, use_container_width=True)
-
-            # GPS-Karte
-            st.subheader("📍 GPS-Route")
-
-            # Farbauswahl mit "Keine Farbe" als Standard
-            color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
-            
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                selected_option = st.selectbox(
-                    "Farbkodierung nach:",
-                    options=color_options,
-                    format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
-                    key="color_metric",
-                    index=0  # "Keine Farbe" ist Standard
-                )
-            
-            with col2:
-                if selected_option != "Keine Farbe":
-                    metric_label = analyzer.available_metrics[selected_option]
-                    st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
+                if not analyzer.is_valid():
+                    st.error("Keine Daten in der FIT-Datei gefunden.")
                 else:
-                    st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
-            
-            # Karte erstellen
-            if selected_option != "Keine Farbe":
-                with st.spinner("Farbkodierte Karte wird erstellt..."):
-                    m = analyzer.create_gps_map(selected_option)
-            else:
-                with st.spinner("Karte wird erstellt..."):
-                    m = analyzer.create_gps_map()  # Ohne color_metric = einfache Karte
-            
-            if m:
-                from streamlit_folium import st_folium
-                st_folium(m, width=700, height=500)
-            else:
-                st.warning("Keine GPS-Daten gefunden.")
-                
-    else:
-        st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
+                    st.write(f"⏱️ **Workout-Dauer:** {analyzer.format_duration()}")
 
+                    sportarten = ["Radfahren", "Laufen", "Schwimmen", "Sonstiges"]
+                    selected_sport = st.selectbox("Sportart auswählen", options=sportarten)
+
+                    stats = analyzer.get_sport_statistics(selected_sport)
+                    for label, data in stats.items():
+                        st.write(f"📊 **{label}:** {data['value']:.2f} {data['unit']}")
+
+                        if data['metric'] == 'distance':
+                            speed_metric = analyzer.calculate_speed_metrics(
+                                selected_sport, data['value'], data['unit']
+                            )
+                            if speed_metric:
+                                icon = "🚴" if selected_sport == "Radfahren" else "🏊" if selected_sport == "Schwimmen" else "🏃"
+                                st.write(f"{icon} **{speed_metric['label']}:** {speed_metric['value']} {speed_metric['unit']}")
+
+                    hr_stats = analyzer.get_heart_rate_stats()
+                    if hr_stats:
+                        st.write(f"❤️ **Durchschnittspuls:** {hr_stats['avg']:.0f} bpm (Max: {hr_stats['max']:.0f} bpm)")
+
+                    elevation = analyzer.get_elevation_gain()
+                    if elevation:
+                        st.write(f"⛰️ **Höhenmeter bergauf:** {elevation:.0f} m")
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        fig_hr = analyzer.create_heart_rate_plot()
+                        if fig_hr:
+                            st.plotly_chart(fig_hr, use_container_width=True)
+
+                    with col2:
+                        fig_alt = analyzer.create_altitude_plot()
+                        if fig_alt:
+                            st.plotly_chart(fig_alt, use_container_width=True)
+
+                    st.subheader("📍 GPS-Route")
+                    color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
+
+                    col1, col2 = st.columns([1, 2])
+
+                    with col1:
+                        selected_option = st.selectbox(
+                            "Farbkodierung nach:",
+                            options=color_options,
+                            format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
+                            key="color_metric",
+                            index=0
+                        )
+
+                    with col2:
+                        if selected_option != "Keine Farbe":
+                            metric_label = analyzer.available_metrics[selected_option]
+                            st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
+                        else:
+                            st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
+
+                    if selected_option != "Keine Farbe":
+                        with st.spinner("Farbkodierte Karte wird erstellt..."):
+                            m = analyzer.create_gps_map(selected_option)
+                    else:
+                        with st.spinner("Karte wird erstellt..."):
+                            m = analyzer.create_gps_map()
+
+                    if m:
+                        from streamlit_folium import st_folium
+                        st_folium(m, width=700, height=500)
+                    else:
+                        st.warning("Keine GPS-Daten gefunden.")
+            except Exception as e:
+                st.error(f"Fehler beim Laden/Analysieren der FIT-Datei: {e}")
+    else:
+        st.info("Bitte wähle eine Person mit FIT-Dateien.")
 
 
 # Tab 5: Neue Person hinzufügen
@@ -585,3 +563,35 @@ with tab5:
         if reset_form:
             st.info("🔄 Formular wurde zurückgesetzt.")
 
+with tab6:
+    st.header("📤 Daten zuordnen & hochladen")
+
+    all_person_names = read_data.get_person_list()
+    selected_name_upload = st.selectbox("Wähle eine Person", all_person_names, key="upload_select")
+
+    if selected_name_upload:
+        selected_person = Person.load_by_name(selected_name_upload)
+
+        st.subheader(f"Daten für: {selected_person.firstname} {selected_person.lastname}")
+
+        uploaded_ekg = st.file_uploader("EKG-Datei (CSV)", type=["csv"], key="upload_ekg_file")
+        uploaded_fit = st.file_uploader("FIT-Datei (.fit)", type=["fit"], key="upload_fit_file")
+
+        if st.button("✅ Hochladen"):
+            results = []
+
+            if uploaded_ekg:
+                success_ekg = selected_person.add_uploaded_file(uploaded_ekg, "ekg")
+                results.append(("EKG", success_ekg))
+            if uploaded_fit:
+                success_fit = selected_person.add_uploaded_file(uploaded_fit, "fit")
+                results.append(("FIT", success_fit))
+
+            if not uploaded_ekg and not uploaded_fit:
+                st.warning("Bitte mindestens eine Datei auswählen.")
+            else:
+                for filetype, success in results:
+                    if success:
+                        st.success(f"{filetype}-Datei erfolgreich hochgeladen.")
+                    else:
+                        st.error(f"{filetype}-Datei konnte nicht gespeichert werden.")

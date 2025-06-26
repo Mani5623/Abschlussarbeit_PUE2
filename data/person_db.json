@@ -17,6 +17,34 @@
         "date": "11.3.2023",
         "result_link": "data/ekg_data/04_Belastung.txt"
       }
+    ],
+    "fit_files": [
+      {
+        "filename": "Huber_Julian_fit_2025-06-26T23-27-31.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:27:31"
+      },
+      {
+        "filename": "Huber_Julian_fit_2025-06-26T23-28-40.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:28:40"
+      },
+      {
+        "filename": "Huber_Julian_827041e5_Fahrt_am_Nachmittag.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:50:40"
+      },
+      {
+        "filename": "Huber_Julian_3d33f37e_Fahrt_am_Nachmittag.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:52:49"
+      },
+      {
+        "filename": "Huber_Julian_fit_2025-06-27T00-05-37.fit",
+        "original_name": "Fahrt_am_Nachmittag.fit",
+        "source": "upload",
+        "timestamp": "2025-06-27T00:05:37"
+      }
     ]
   },
   {
@@ -57,5 +85,61 @@
     "picture_path": "data/pictures\\Hager_Manuel.jpg",
     "gender": "male",
     "ekg_tests": []
+  },
+  {
+    "id": 5,
+    "firstname": "Jakob",
+    "lastname": "Haas",
+    "date_of_birth": "2005-07-24",
+    "picture_path": null,
+    "gender": "male",
+    "ekg_tests": [],
+    "fit_files": [
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-12-25.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:12:25"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-30-15.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:30:15"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-32-50.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:32:50"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-34-00.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:34:00"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-35-12.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:35:12"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-36-06.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:36:06"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-36-36.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:36:36"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-37-52.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:37:52"
+      },
+      {
+        "filename": "Haas_Jakob_fit_2025-06-26T23-39-01.fit",
+        "source": "upload",
+        "timestamp": "2025-06-26T23:39:01"
+      }
+    ]
   }
 ]
