@@ -358,83 +358,91 @@ with tab4:
                     from read_fit_file import FitFileAnalyzer
                     analyzer = FitFileAnalyzer(f)
 
-                if not analyzer.is_valid():
-                    st.error("Keine Daten in der FIT-Datei gefunden.")
+        if not analyzer.is_valid():
+            st.error("Keine Daten in der FIT-Datei gefunden.")
+        else:
+            # Workout-Zeit anzeigen
+            st.write(f"⏱️ **Workout-Dauer:** {analyzer.format_duration()}")
+
+            # Sportartspezifische Statistiken
+            stats = analyzer.get_sport_statistics(selected_sport)
+            
+            for label, data in stats.items():
+                st.write(f"📊 **{label}:** {data['value']:.2f} {data['unit']}")
+                
+                # Geschwindigkeitsberechnung für Distanz-Metriken
+                if data['metric'] == 'distance':
+                    speed_metric = analyzer.calculate_speed_metrics(
+                        selected_sport, data['value'], data['unit']
+                    )
+                    if speed_metric:
+                        icon = "🚴" if selected_sport == "Radfahren" else "🏊" if selected_sport == "Schwimmen" else "🏃"
+                        st.write(f"{icon} **{speed_metric['label']}:** {speed_metric['value']} {speed_metric['unit']}")
+
+            # Herzfrequenz-Statistiken
+            hr_stats = analyzer.get_heart_rate_stats()
+            if hr_stats:
+                st.write(f"❤️ **Durchschnittspuls:** {hr_stats['avg']:.0f} bpm (Max: {hr_stats['max']:.0f} bpm)")
+
+            # Höhenmeter
+            elevation = analyzer.get_elevation_gain()
+            if elevation:
+                st.write(f"⛰️ **Höhenmeter bergauf:** {elevation:.0f} m")
+
+            # Plots in Spalten
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig_hr = analyzer.create_heart_rate_plot()
+                if fig_hr:
+                    st.plotly_chart(fig_hr, use_container_width=True)
+
+            with col2:
+                fig_alt = analyzer.create_altitude_plot()
+                if fig_alt:
+                    st.plotly_chart(fig_alt, use_container_width=True)
+
+            # GPS-Karte
+            st.subheader("📍 GPS-Route")
+
+            # Farbauswahl mit "Keine Farbe" als Standard
+            color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                selected_option = st.selectbox(
+                    "Farbkodierung nach:",
+                    options=color_options,
+                    format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
+                    key="color_metric",
+                    index=0  # "Keine Farbe" ist Standard
+                )
+            
+            with col2:
+                if selected_option != "Keine Farbe":
+                    metric_label = analyzer.available_metrics[selected_option]
+                    st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
                 else:
-                    st.write(f"⏱️ **Workout-Dauer:** {analyzer.format_duration()}")
-
-                    sportarten = ["Radfahren", "Laufen", "Schwimmen", "Sonstiges"]
-                    selected_sport = st.selectbox("Sportart auswählen", options=sportarten)
-
-                    stats = analyzer.get_sport_statistics(selected_sport)
-                    for label, data in stats.items():
-                        st.write(f"📊 **{label}:** {data['value']:.2f} {data['unit']}")
-
-                        if data['metric'] == 'distance':
-                            speed_metric = analyzer.calculate_speed_metrics(
-                                selected_sport, data['value'], data['unit']
-                            )
-                            if speed_metric:
-                                icon = "🚴" if selected_sport == "Radfahren" else "🏊" if selected_sport == "Schwimmen" else "🏃"
-                                st.write(f"{icon} **{speed_metric['label']}:** {speed_metric['value']} {speed_metric['unit']}")
-
-                    hr_stats = analyzer.get_heart_rate_stats()
-                    if hr_stats:
-                        st.write(f"❤️ **Durchschnittspuls:** {hr_stats['avg']:.0f} bpm (Max: {hr_stats['max']:.0f} bpm)")
-
-                    elevation = analyzer.get_elevation_gain()
-                    if elevation:
-                        st.write(f"⛰️ **Höhenmeter bergauf:** {elevation:.0f} m")
-
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-                        fig_hr = analyzer.create_heart_rate_plot()
-                        if fig_hr:
-                            st.plotly_chart(fig_hr, use_container_width=True)
-
-                    with col2:
-                        fig_alt = analyzer.create_altitude_plot()
-                        if fig_alt:
-                            st.plotly_chart(fig_alt, use_container_width=True)
-
-                    st.subheader("📍 GPS-Route")
-                    color_options = ["Keine Farbe"] + list(analyzer.available_metrics.keys())
-
-                    col1, col2 = st.columns([1, 2])
-
-                    with col1:
-                        selected_option = st.selectbox(
-                            "Farbkodierung nach:",
-                            options=color_options,
-                            format_func=lambda x: x if x == "Keine Farbe" else analyzer.available_metrics[x],
-                            key="color_metric",
-                            index=0
-                        )
-
-                    with col2:
-                        if selected_option != "Keine Farbe":
-                            metric_label = analyzer.available_metrics[selected_option]
-                            st.info(f"🎨 Route eingefärbt nach: **{metric_label}**")
-                        else:
-                            st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
-
-                    if selected_option != "Keine Farbe":
-                        with st.spinner("Farbkodierte Karte wird erstellt..."):
-                            m = analyzer.create_gps_map(selected_option)
-                    else:
-                        with st.spinner("Karte wird erstellt..."):
-                            m = analyzer.create_gps_map()
-
-                    if m:
-                        from streamlit_folium import st_folium
-                        st_folium(m, width=700, height=500)
-                    else:
-                        st.warning("Keine GPS-Daten gefunden.")
-            except Exception as e:
-                st.error(f"Fehler beim Laden/Analysieren der FIT-Datei: {e}")
+                    st.info("🔵 Route wird in einfacher blauer Farbe angezeigt")
+            
+            # Karte erstellen
+            if selected_option != "Keine Farbe":
+                with st.spinner("Farbkodierte Karte wird erstellt..."):
+                    m = analyzer.create_gps_map(selected_option)
+            else:
+                with st.spinner("Karte wird erstellt..."):
+                    m = analyzer.create_gps_map()  # Ohne color_metric = einfache Karte
+            
+            if m:
+                from streamlit_folium import st_folium
+                st_folium(m, width=700, height=500)
+            else:
+                st.warning("Keine GPS-Daten gefunden.")
+                
     else:
-        st.info("Bitte wähle eine Person mit FIT-Dateien.")
+        st.info("Bitte laden Sie ein FIT-File hoch und klicken Sie auf 'Abschicken'.")
+
 
 
 # Tab 5: Neue Person hinzufügen
