@@ -97,7 +97,6 @@ with tab2:
                 st.plotly_chart(fig, use_container_width=True)
 
                 # NeuroKit2 HRV Analyse
-                import neurokit2 as nk
                 try:
                     processed, info = nk.ecg_process(
                         ekg.df["Messwerte in mV"].values,
@@ -147,7 +146,7 @@ with tab2:
             st.write("Personen-ID:", person_obj.id)
             st.write(f"Alter: {age} Jahre")
             st.write(f"EKG-ID: {ekg.id}")
-            st.write(f"Geschätzte Herzfrequenz (durchschnittlich): {estimated_hr:.1f} bpm")
+            st.write(f"Durchschnittliche Herzfrequenz: {estimated_hr:.1f} bpm")
             st.write(f"Geschätzter Maximalpuls: {max_hr} bpm")
             st.write(f"Maximale Herzfrequenz in EKG: {max_instant_hr:.1f} bpm")
             st.write(f"Minimale Herzfrequenz in EKG: {min_instant_hr:.1f} bpm")
@@ -192,7 +191,6 @@ with tab2:
                 return interpretations
 
             # NeuroKit2 Analyse
-            import neurokit2 as nk
             try:
                 processed, info = nk.ecg_process(ekg.df["Messwerte in mV"].values, sampling_rate=ekg.sampling_rate)
                 rpeaks = info["ECG_R_Peaks"]
@@ -204,9 +202,6 @@ with tab2:
                 for text in interpretations:
                     st.write(text)
 
-                # Plot
-                fig_nk = nk.ecg_plot(processed)
-                st.plotly_chart(fig_nk, use_container_width=True)
 
             except Exception as e:
                 st.warning(f"NeuroKit2 Analyse konnte nicht durchgeführt werden: {e}")
@@ -247,7 +242,7 @@ with tab2:
                         x=hr_times_min,
                         y=instant_hr,
                         mode='lines+markers',
-                        name='Instantane Herzfrequenz (bpm)',
+                        name='Instant Herzfrequenz (bpm)',
                         yaxis='y2'
                     ))
 
