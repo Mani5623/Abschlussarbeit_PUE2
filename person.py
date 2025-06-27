@@ -162,9 +162,10 @@ class Person:
 
         os.makedirs("data/uploads", exist_ok=True)
 
-        extension = file.name.split(".")[-1].lower()
-        timestamp = datetime.now().isoformat(timespec="seconds")
-        safe_filename = f"{self.lastname}_{self.firstname}_{filetype}_{timestamp.replace(':', '-')}.{extension}"
+        original_name = file.name
+        name_without_ext, extension = os.path.splitext(original_name)
+        timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
+        safe_filename = f"{name_without_ext}_{timestamp}{extension}"
         file_path = os.path.join("data/uploads", safe_filename)
 
         try:
@@ -173,7 +174,7 @@ class Person:
 
             entry = {
                 "filename": safe_filename,
-                "original_name": file.name,  # ⬅️ NEU: Ursprünglicher Dateiname
+                "original_name": original_name,
                 "source": "upload",
                 "timestamp": timestamp
             }
@@ -194,6 +195,37 @@ class Person:
 
         except Exception as e:
             print(f"Fehler beim Speichern der Datei: {e}")
+            return False
+
+    def remove_file(self, filename: str, filetype: str) -> bool:
+        try:
+            filepath = os.path.join("data", "uploads", filename)
+
+            if os.path.isfile(filepath):
+                os.remove(filepath)
+                print(f"Datei {filename} gelöscht.")
+            else:
+                print(f"Datei {filename} nicht gefunden auf Datenträger.")
+
+            person_data = Person.load_person_data()
+            key = "fit_files" if filetype == "fit" else "ekg_tests"
+
+            for person in person_data:
+                if person["id"] == self.id:
+                    if key in person:
+                        original_len = len(person[key])
+                        person[key] = [f for f in person[key] if f.get("filename") != filename]
+                        if len(person[key]) < original_len:
+                            print(f"Datei {filename} aus JSON-Eintrag entfernt.")
+                    break
+
+            with open("data/person_db.json", "w", encoding="utf-8") as file:
+                json.dump(person_data, file, indent=2, ensure_ascii=False)
+
+            return True
+
+        except Exception as e:
+            print(f"Fehler beim Entfernen der Datei {filename}: {e}")
             return False
 
     def update_person_data(self, **kwargs):

@@ -813,16 +813,17 @@ with tab5:
             st.info("🔄 Formular wurde zurückgesetzt.")
 
 with tab6:
-    st.header("📤 Daten zuordnen & hochladen")
+    st.header("📤 Daten zuordnen & verwalten")
 
     all_person_names = read_data.get_person_list()
     selected_name_upload = st.selectbox("Wähle eine Person", all_person_names, key="upload_select")
 
     if selected_name_upload:
         selected_person = Person.load_by_name(selected_name_upload)
-
         st.subheader(f"Daten für: {selected_person.firstname} {selected_person.lastname}")
 
+        # --- Upload ---
+        st.markdown("### 🆕 Datei hochladen")
         uploaded_ekg = st.file_uploader("EKG-Datei (CSV)", type=["csv"], key="upload_ekg_file")
         uploaded_fit = st.file_uploader("FIT-Datei (.fit)", type=["fit"], key="upload_fit_file")
 
@@ -844,3 +845,20 @@ with tab6:
                         st.success(f"{filetype}-Datei erfolgreich hochgeladen.")
                     else:
                         st.error(f"{filetype}-Datei konnte nicht gespeichert werden.")
+
+        # --- Bestehende Dateien löschen ---
+        st.markdown("### 🗑️ Hochgeladene FIT-Dateien löschen")
+        fit_files = selected_person.fit_files
+        if fit_files:
+            fit_filenames = [f["filename"] for f in fit_files]
+            selected_file_to_delete = st.selectbox("Wähle eine FIT-Datei zum Löschen", fit_filenames)
+
+            if st.button("🗑️ Datei löschen"):
+                success = selected_person.remove_file(selected_file_to_delete, "fit")
+                if success:
+                    st.success(f"{selected_file_to_delete} wurde gelöscht.")
+                    st.rerun()  # 🆕 streamlit.rerun statt deprecated experimental_rerun
+                else:
+                    st.error("Löschen fehlgeschlagen.")
+        else:
+            st.info("Keine FIT-Dateien vorhanden.")
