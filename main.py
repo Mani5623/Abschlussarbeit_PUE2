@@ -851,7 +851,6 @@ with tab6:
 
     st.divider()
 
-    # Übersicht bereits hochgeladener FIT-Dateien dieser Person
     st.subheader("📁 Bereits hochgeladene FIT-Dateien")
 
     fit_dir = os.path.join("data", "fit_file", str(person_obj.id))
@@ -863,6 +862,60 @@ with tab6:
         if not fit_files:
             st.info("Keine FIT-Dateien für diese Person vorhanden.")
         else:
+            import read_fit_file
+            stats = {}
+
+            # --- Erst: Alle Dateien laden & Statistik sammeln ---
+            for file in fit_files:
+                file_path = os.path.join(fit_dir, file)
+                with open(file_path, "rb") as f:
+                    analyzer = read_fit_file.FitFileAnalyzer(f)
+
+                sport = analyzer.sportart or "Unbekannt"
+
+                dist_m = 0
+                if "distance" in analyzer.df.columns and not analyzer.df["distance"].isna().all():
+                    dist_m = analyzer.df["distance"].max()
+
+                dur_h = analyzer.duration_hours
+
+                ascent_m = 0
+                if sport in ["Laufen", "Radfahren"]:
+                    elevation = analyzer.get_elevation_gain()
+                    if elevation is not None:
+                        ascent_m = elevation
+
+                if sport not in stats:
+                    stats[sport] = {
+                        "distance": 0,
+                        "duration": 0,
+                        "count": 0,
+                        "ascent": 0
+                    }
+
+                stats[sport]["distance"] += dist_m
+                stats[sport]["duration"] += dur_h
+                stats[sport]["count"] += 1
+                if sport in ["Laufen", "Radfahren"]:
+                    stats[sport]["ascent"] += ascent_m
+
+            # --- Statistik anzeigen ---
+            st.subheader("📊 Aggregierte Statistik nach Sportart")
+            for sport, data in stats.items():
+                dist_km = data["distance"] / 1000
+                dur_h = data["duration"]
+                count = data["count"]
+                ascent_m = data["ascent"]
+
+                st.markdown(f"### {sport}")
+                st.markdown(f"- Anzahl Aufzeichnungen: **{count}**")
+                st.markdown(f"- Gesamtdistanz: **{dist_km:.2f} km**")
+                st.markdown(f"- Gesamtdauer: **{dur_h:.2f} h**")
+                if sport in ["Laufen", "Radfahren"]:
+                    st.markdown(f"- Gesamthöhenmeter: **{ascent_m:.0f} m**")
+
+            # --- Danach: Liste mit Dateien und Löschen-Buttons ---
+            st.subheader("📄 FIT-Dateien im Detail")
             for file in sorted(fit_files):
                 file_path = os.path.join(fit_dir, file)
                 meta_path = file_path.replace(".fit", ".json")
