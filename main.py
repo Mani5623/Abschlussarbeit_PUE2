@@ -828,26 +828,33 @@ with tab6:
     # Uploadbereich
     uploaded_file = st.file_uploader("Wähle eine FIT-Datei aus", type=["fit"], key="fit_upload")
 
+    # Upload in session_state speichern & file_saved verwalten
     if uploaded_file is not None:
-        # Zielverzeichnis der Person
-        fit_dir = os.path.join("data", "fit_file", str(person_obj.id))
-        os.makedirs(fit_dir, exist_ok=True)
+        # Falls eine neue Datei hochgeladen wurde, file_saved zurücksetzen
+        if ('uploaded_file' not in st.session_state or 
+            st.session_state['uploaded_file'].name != uploaded_file.name):
+            st.session_state['file_saved'] = False
+        st.session_state['uploaded_file'] = uploaded_file
 
-        # Zeitstempel und Dateiname
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = uploaded_file.name.replace(".fit", f"_{timestamp}.fit")
-        filepath = os.path.join(fit_dir, filename)
+    if 'uploaded_file' in st.session_state:
+        if not st.session_state.get('file_saved', False):
+            fit_dir = os.path.join("data", "fit_file", str(person_obj.id))
+            os.makedirs(fit_dir, exist_ok=True)
 
-        # Datei speichern
-        with open(filepath, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = st.session_state['uploaded_file'].name.replace(".fit", f"_{timestamp}.fit")
+            filepath = os.path.join(fit_dir, filename)
 
-        # Sportart-Metadaten speichern
-        meta_path = filepath.replace(".fit", ".json")
-        with open(meta_path, "w") as meta_file:
-            json.dump({"sportart": sportart}, meta_file)
+            with open(filepath, "wb") as f:
+                f.write(st.session_state['uploaded_file'].getbuffer())
 
-        st.success(f"FIT-Datei gespeichert für {selected_name} mit Sportart: {sportart}")
+            meta_path = filepath.replace(".fit", ".json")
+            with open(meta_path, "w") as meta_file:
+                json.dump({"sportart": sportart}, meta_file)
+
+            st.success(f"FIT-Datei gespeichert für {selected_name} mit Sportart: {sportart}")
+
+            st.session_state['file_saved'] = True
 
     st.divider()
 
@@ -862,10 +869,9 @@ with tab6:
         if not fit_files:
             st.info("Keine FIT-Dateien für diese Person vorhanden.")
         else:
-            import read_fit_file
+            # Statistik sammeln
             stats = {}
 
-            # --- Erst: Alle Dateien laden & Statistik sammeln ---
             for file in fit_files:
                 file_path = os.path.join(fit_dir, file)
                 with open(file_path, "rb") as f:
@@ -899,7 +905,7 @@ with tab6:
                 if sport in ["Laufen", "Radfahren"]:
                     stats[sport]["ascent"] += ascent_m
 
-            # --- Statistik anzeigen ---
+            # Statistik anzeigen
             st.subheader("📊 Aggregierte Statistik nach Sportart")
             for sport, data in stats.items():
                 dist_km = data["distance"] / 1000
@@ -914,7 +920,7 @@ with tab6:
                 if sport in ["Laufen", "Radfahren"]:
                     st.markdown(f"- Gesamthöhenmeter: **{ascent_m:.0f} m**")
 
-            # --- Danach: Liste mit Dateien und Löschen-Buttons ---
+            # Dateien mit Löschen-Button anzeigen
             st.subheader("📄 FIT-Dateien im Detail")
             for file in sorted(fit_files):
                 file_path = os.path.join(fit_dir, file)
@@ -924,14 +930,14 @@ with tab6:
                 if os.path.exists(meta_path):
                     try:
                         with open(meta_path, "r") as f:
-                            sportart = json.load(f).get("sportart", "Unbekannt")
+                            sportart_file = json.load(f).get("sportart", "Unbekannt")
                     except json.JSONDecodeError:
-                        sportart = "Ungültige JSON"
+                        sportart_file = "Ungültige JSON"
                 else:
-                    sportart = "Keine Angabe"
+                    sportart_file = "Keine Angabe"
 
                 cols = st.columns([4, 2, 1])
-                cols[0].markdown(f"📄 **{file}**  \n🧩 *Sportart:* {sportart}")
+                cols[0].markdown(f"📄 **{file}**  \n🧩 *Sportart:* {sportart_file}")
                 if cols[2].button("❌ Löschen", key=f"delete_{file}"):
                     os.remove(file_path)
                     if os.path.exists(meta_path):
