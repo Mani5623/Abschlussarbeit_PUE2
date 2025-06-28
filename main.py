@@ -16,6 +16,8 @@ import os
 from datetime import datetime, date
 import io
 import os
+from datetime import datetime
+import json
 
 
 DEFAULT_IMAGE_PATH = "data/pictures/none.jpg"
@@ -813,52 +815,73 @@ with tab5:
             st.info("🔄 Formular wurde zurückgesetzt.")
 
 with tab6:
-    st.header("📤 Daten zuordnen & verwalten")
+    st.header("📤 FIT-Datei hochladen und verwalten")
 
-    all_person_names = read_data.get_person_list()
-    selected_name_upload = st.selectbox("Wähle eine Person", all_person_names, key="upload_select")
+    # Personenauswahl
+    person_names = read_data.get_person_list()
+    selected_name = st.selectbox("Wähle eine Person aus", person_names, key="tab6_person_select")
+    person_obj = Person.load_by_name(selected_name)
 
-    if selected_name_upload:
-        selected_person = Person.load_by_name(selected_name_upload)
-        st.subheader(f"Daten für: {selected_person.firstname} {selected_person.lastname}")
+    # Sportartauswahl
+    sportart = st.selectbox("Sportart auswählen", ["Laufen", "Radfahren", "Schwimmen", "Andere"], key="sport_select")
 
-        # --- Upload ---
-        st.markdown("### 🆕 Datei hochladen")
-        uploaded_ekg = st.file_uploader("EKG-Datei (CSV)", type=["csv"], key="upload_ekg_file")
-        uploaded_fit = st.file_uploader("FIT-Datei (.fit)", type=["fit"], key="upload_fit_file")
+    # Uploadbereich
+    uploaded_file = st.file_uploader("Wähle eine FIT-Datei aus", type=["fit"], key="fit_upload")
 
-        if st.button("✅ Hochladen"):
-            results = []
+    if uploaded_file is not None:
+        # Zielverzeichnis der Person
+        fit_dir = os.path.join("data", "fit_file", str(person_obj.id))
+        os.makedirs(fit_dir, exist_ok=True)
 
-            if uploaded_ekg:
-                success_ekg = selected_person.add_uploaded_file(uploaded_ekg, "ekg")
-                results.append(("EKG", success_ekg))
-            if uploaded_fit:
-                success_fit = selected_person.add_uploaded_file(uploaded_fit, "fit")
-                results.append(("FIT", success_fit))
+        # Zeitstempel und Dateiname
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = uploaded_file.name.replace(".fit", f"_{timestamp}.fit")
+        filepath = os.path.join(fit_dir, filename)
 
-            if not uploaded_ekg and not uploaded_fit:
-                st.warning("Bitte mindestens eine Datei auswählen.")
-            else:
-                for filetype, success in results:
-                    if success:
-                        st.success(f"{filetype}-Datei erfolgreich hochgeladen.")
-                    else:
-                        st.error(f"{filetype}-Datei konnte nicht gespeichert werden.")
+        # Datei speichern
+        with open(filepath, "wb") as f:
+            f.write(uploaded_file.getbuffer())
 
-        # --- Bestehende Dateien löschen ---
-        st.markdown("### 🗑️ Hochgeladene FIT-Dateien löschen")
-        fit_files = selected_person.fit_files
-        if fit_files:
-            fit_filenames = [f["filename"] for f in fit_files]
-            selected_file_to_delete = st.selectbox("Wähle eine FIT-Datei zum Löschen", fit_filenames)
+        # Sportart-Metadaten speichern
+        meta_path = filepath.replace(".fit", ".json")
+        with open(meta_path, "w") as meta_file:
+            json.dump({"sportart": sportart}, meta_file)
 
-            if st.button("🗑️ Datei löschen"):
-                success = selected_person.remove_file(selected_file_to_delete, "fit")
-                if success:
-                    st.success(f"{selected_file_to_delete} wurde gelöscht.")
-                    st.rerun()  # 🆕 streamlit.rerun statt deprecated experimental_rerun
-                else:
-                    st.error("Löschen fehlgeschlagen.")
+        st.success(f"FIT-Datei gespeichert für {selected_name} mit Sportart: {sportart}")
+
+    st.divider()
+
+    # Übersicht bereits hochgeladener FIT-Dateien dieser Person
+    st.subheader("📁 Bereits hochgeladene FIT-Dateien")
+
+    fit_dir = os.path.join("data", "fit_file", str(person_obj.id))
+    if not os.path.exists(fit_dir):
+        st.info("Keine FIT-Dateien für diese Person vorhanden.")
+    else:
+        fit_files = [f for f in os.listdir(fit_dir) if f.endswith(".fit")]
+
+        if not fit_files:
+            st.info("Keine FIT-Dateien für diese Person vorhanden.")
         else:
-            st.info("Keine FIT-Dateien vorhanden.")
+            for file in sorted(fit_files):
+                file_path = os.path.join(fit_dir, file)
+                meta_path = file_path.replace(".fit", ".json")
+
+                # Sportart aus JSON lesen
+                if os.path.exists(meta_path):
+                    try:
+                        with open(meta_path, "r") as f:
+                            sportart = json.load(f).get("sportart", "Unbekannt")
+                    except json.JSONDecodeError:
+                        sportart = "Ungültige JSON"
+                else:
+                    sportart = "Keine Angabe"
+
+                cols = st.columns([4, 2, 1])
+                cols[0].markdown(f"📄 **{file}**  \n🧩 *Sportart:* {sportart}")
+                if cols[2].button("❌ Löschen", key=f"delete_{file}"):
+                    os.remove(file_path)
+                    if os.path.exists(meta_path):
+                        os.remove(meta_path)
+                    st.success(f"'{file}' und zugehörige Metadaten wurden gelöscht.")
+                    st.rerun()

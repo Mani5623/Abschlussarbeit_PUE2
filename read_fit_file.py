@@ -6,10 +6,12 @@ import folium
 import matplotlib.cm as cm
 import matplotlib.colors as colors
 from datetime import timedelta
+import os
+import json
 
 class FitFileAnalyzer:
     """Objektorientierte Klasse für FIT-File Analyse"""
-    
+
     # Klassenkonstanten
     SEMICIRCLE_TO_DEGREE = 180 / 2**31
     AVAILABLE_METRICS = {
@@ -18,59 +20,75 @@ class FitFileAnalyzer:
         'speed': 'Geschwindigkeit',
         'power': 'Leistung'
     }
-    
+
     def __init__(self, fit_file):
         """Initialisiert den Analyzer mit einer FIT-Datei"""
         self.fit_file = fit_file
+        self.filename = getattr(fit_file, 'name', None)  # Name der Datei, falls verfügbar
+        self.sportart = self._load_sportart()            # NEU: Automatisch Sportart laden
         self.df = None
         self.duration_hours = 0
         self.available_metrics = {}
         self._load_data()
-    
+
+    def _load_sportart(self):
+        """Lädt die Sportart aus einer zugehörigen JSON-Datei, falls verfügbar"""
+        if not self.filename or not self.filename.endswith(".fit"):
+            return "Unbekannt"
+
+        meta_path = self.filename.replace(".fit", ".json")
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, "r") as f:
+                    return json.load(f).get("sportart", "Unbekannt")
+            except json.JSONDecodeError:
+                return "Unbekannt"
+        return "Unbekannt"
+
     def _load_data(self):
         """Lädt und verarbeitet die FIT-Datei"""
         fitfile = FitFile(self.fit_file)
         all_records = []
-        
+
         for record in fitfile.get_messages('record'):
             data = {field.name: field.value for field in record}
             all_records.append(data)
-        
+
         if not all_records:
             self.df = pd.DataFrame()
             return
-        
+
         self.df = pd.DataFrame(all_records)
-        
+
         # Zeit in Sekunden berechnen
         if 'timestamp' in self.df.columns:
             self.df['timestamp'] = pd.to_datetime(self.df['timestamp'])
             start_time = self.df['timestamp'].iloc[0]
             self.df['time_seconds'] = (self.df['timestamp'] - start_time).dt.total_seconds()
-        
+
         self._calculate_duration()
         self._get_available_metrics()
-    
+
     def _calculate_duration(self):
         """Berechnet die Workout-Dauer"""
         if 'time_seconds' not in self.df or self.df.empty:
             self.duration_hours = 0
             return
         self.duration_hours = (self.df['time_seconds'].iloc[-1] - self.df['time_seconds'].iloc[0]) / 3600
-    
+
     def _get_available_metrics(self):
         """Ermittelt verfügbare Metriken"""
         self.available_metrics = {
             metric: label for metric, label in self.AVAILABLE_METRICS.items()
             if metric in self.df.columns and not self.df[metric].isna().all()
         }
-    
+
     def format_duration(self):
         """Formatiert die Dauer in lesbares Format"""
         total_minutes = int(self.duration_hours * 60)
         hours_part = total_minutes // 60
         minutes_part = total_minutes % 60
-        
+
         if hours_part > 0:
             return f"{hours_part}h {minutes_part}min"
         else:
