@@ -48,6 +48,33 @@ class Person:
         else:
             return round(220 - age)
 
+    def get_fit_files_from_directory(self):
+        """Lädt FIT-Dateien aus dem person-spezifischen Verzeichnis"""
+        fit_dir = os.path.join("data", "fit_file", str(self.id))
+        fit_files = []
+        
+        if os.path.exists(fit_dir):
+            for file in os.listdir(fit_dir):
+                if file.endswith(".fit"):
+                    # Lade Metadaten aus JSON
+                    meta_path = os.path.join(fit_dir, file.replace(".fit", ".json"))
+                    sportart = "Unbekannt"
+                    
+                    if os.path.exists(meta_path):
+                        try:
+                            with open(meta_path, "r") as f:
+                                sportart = json.load(f).get("sportart", "Unbekannt")
+                        except json.JSONDecodeError:
+                            pass
+                    
+                    fit_files.append({
+                        "filename": file,
+                        "sportart": sportart,
+                        "filepath": os.path.join(fit_dir, file)
+                    })
+        
+        return fit_files
+
     @staticmethod
     def load_person_data():
         try:
@@ -256,7 +283,6 @@ class Person:
 
     def __repr__(self):
         return f"Person(id={self.id}, name='{self.firstname} {self.lastname}', age={self.calc_age()})"
-
 
 if __name__ == "__main__":
     try:
