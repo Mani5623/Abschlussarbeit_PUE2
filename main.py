@@ -28,7 +28,7 @@ if 'show_add_form' not in st.session_state:
     st.session_state.show_add_form = False
 
 # Erweiterte Tabs mit neuem "Person hinzufügen" Tab
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👤 Versuchsperson", "🫀 EKG-Daten", "🚴 Leistungstest", "🏋️ Fit File", "➕ Person hinzufügen", "📤 Daten zuordnen & hochladen"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["👤 Versuchsperson","➕ Person hinzufügen", "🚴 Leistungstest", "🫀 EKG-Daten", "🏋️ Fit File Analyse", "📤 Fit File zuordnen & hochladen"])
 
 # Tab 1: Versuchsperson auswählen (ohne "Person hinzufügen" Sektion)
 with tab1:
@@ -63,10 +63,334 @@ st.set_page_config(
     layout="wide"
 )
 
+with tab2:
+    st.header("➕ Neue Person hinzufügen")
+    st.write("Hier können Sie eine neue Versuchsperson zur Datenbank hinzufügen.")
+    
+    with st.form("add_person_form", clear_on_submit=True):
+        st.subheader("Persönliche Daten")
+        
+        # Layout in zwei Spalten
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Grunddaten**")
+            firstname = st.text_input("Vorname*", 
+                                    placeholder="z.B. Max",
+                                    help="Bitte geben Sie den Vornamen ein")
+            
+            lastname = st.text_input("Nachname*", 
+                                   placeholder="z.B. Mustermann",
+                                   help="Bitte geben Sie den Nachnamen ein")
+            
+            gender = st.selectbox("Geschlecht*", 
+                                options=["male", "female"], 
+                                format_func=lambda x: "👨 Männlich" if x == "male" else "👩 Weiblich",
+                                help="Wählen Sie das Geschlecht aus")
+        
+        with col2:
+            st.markdown("**Geburtsdatum & Bild**")
+            
+            # Kalender für Geburtsdatum
+            birth_date = st.date_input(
+                "Geburtsdatum*",
+                value=date(2000, 1, 1),
+                min_value=date(1900, 1, 1),
+                max_value=date.today(),
+                help="Wählen Sie das Geburtsdatum aus dem Kalender"
+            )
+            
+            # Bildupload
+            uploaded_file = st.file_uploader(
+                "Profilbild (optional)", 
+                type=['png', 'jpg', 'jpeg'],
+                help="Laden Sie ein Profilbild hoch (PNG, JPG oder JPEG)"
+            )
+            
+            # Vorschau des hochgeladenen Bildes
+            if uploaded_file is not None:
+                try:
+                    preview_image = Image.open(uploaded_file)
+                    st.image(preview_image, caption="Bildvorschau", width=200)
+                except Exception as e:
+                    st.error(f"Fehler beim Anzeigen der Bildvorschau: {e}")
+        
+        # Zusätzliche Informationen
+        st.markdown("---")
+        st.markdown("**Zusätzliche Informationen**")
+        
+        # Berechne Alter basierend auf ausgewähltem Datum
+        if birth_date:
+            calculated_age = date.today().year - birth_date.year
+            if date.today() < date(date.today().year, birth_date.month, birth_date.day):
+                calculated_age -= 1
+            st.info(f"📅 Berechnetes Alter: {calculated_age} Jahre")
+        
+        # Submit-Buttons
+        st.markdown("---")
+        col_submit, col_reset = st.columns([1, 1])
+        
+        with col_submit:
+            submitted = st.form_submit_button(
+                "👤 Person speichern", 
+                type="primary",
+                use_container_width=True
+            )
+        
+        with col_reset:
+            reset_form = st.form_submit_button(
+                "🔄 Formular zurücksetzen",
+                use_container_width=True
+            )
+        
+        # Formular-Verarbeitung
+        if submitted:
+            # Validierung
+            if not firstname or not lastname:
+                st.error("❌ Bitte füllen Sie alle Pflichtfelder (*) aus.")
+            elif not birth_date:
+                st.error("❌ Bitte wählen Sie ein gültiges Geburtsdatum aus.")
+            else:
+                try:
+                    # Prüfe auf Duplikate
+                    if Person.person_exists(firstname, lastname):
+                        st.error(f"❌ Person {firstname} {lastname} existiert bereits in der Datenbank!")
+                    else:
+                        # Neue Person erstellen
+                        success = Person.add_new_person(
+                            firstname=firstname,
+                            lastname=lastname,
+                            birth_date=birth_date,  # Übergebe das date-Objekt
+                            gender=gender,
+                            uploaded_file=uploaded_file
+                        )
+                        
+                        if success:
+                            st.success(f"✅ Person {firstname} {lastname} wurde erfolgreich hinzugefügt!")
+                            st.balloons()  # Feier-Animation
+                            
+                            # Zeige Zusammenfassung
+                            with st.expander("📋 Zusammenfassung der hinzugefügten Person"):
+                                st.write(f"**Name:** {firstname} {lastname}")
+                                st.write(f"**Geschlecht:** {'Männlich' if gender == 'male' else 'Weiblich'}")
+                                st.write(f"**Geburtsdatum:** {birth_date.strftime('%d.%m.%Y')}")
+                                st.write(f"**Alter:** {calculated_age} Jahre")
+                                if uploaded_file:
+                                    st.write("**Profilbild:** ✅ Hochgeladen")
+                                else:
+                                    st.write("**Profilbild:** ❌ Nicht vorhanden")
+                        else:
+                            st.error("❌ Fehler beim Speichern der Person. Bitte versuchen Sie es erneut.")
+                
+                except Exception as e:
+                    st.error(f"❌ Unerwarteter Fehler: {str(e)}")
+        
+        if reset_form:
+            st.info("🔄 Formular wurde zurückgesetzt.")
+
+with tab3:
+    st.header("🚴 Leistungstest-Auswertung")
+    
+    # Eingabebereich in ansprechenden Spalten
+    st.subheader("📝 Persönliche Daten eingeben")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        weight = st.number_input(
+            "⚖️ Gewicht (kg)", 
+            min_value=30, 
+            max_value=200, 
+            value=70,
+            help="Ihr Körpergewicht für die Kalorienberechnung"
+        )
+    
+    with col2:
+        age = st.number_input(
+            "🎂 Alter (Jahre)", 
+            min_value=10, 
+            max_value=120, 
+            value=30,
+            help="Ihr Alter für die VO2max-Schätzung"
+        )
+    
+    with col3:
+        resting_hr = st.number_input(
+            "💤 Ruhepuls (bpm)", 
+            min_value=30, 
+            max_value=120, 
+            value=60,
+            help="Ihre Herzfrequenz in Ruhe"
+        )
+    
+    with col4:
+        max_hr_input = st.number_input(
+            "🔥 Max. Herzfrequenz (bpm)", 
+            min_value=50, 
+            max_value=220, 
+            value=180,
+            help="Maximale Herzfrequenz für Zonenanalyse"
+        )
+
+    # Zentrierter Start-Button
+    col_button1, col_button2, col_button3 = st.columns([1, 2, 1])
+    with col_button2:
+        start_analysis = st.button(
+            "🚀 Auswertung starten", 
+            type="primary",
+            use_container_width=True
+        )
+
+    if start_analysis:
+        try:
+            with st.spinner("📊 Daten werden analysiert..."):
+                df = read_pandas.read_my_csv()
+
+                zones = read_pandas.get_zone_limit(max_hr_input)
+                df['Zone'] = df['HeartRate'].apply(lambda x: read_pandas.assign_zone(x, zones))
+
+                # Plot mit verbessertem Titel
+                fig = read_pandas.make_plot(df, zones)
+                fig.update_layout(
+                    title="🚴 Leistungstest-Verlauf mit Herzfrequenzzonen",
+                    height=600
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Leistungsanalyse
+                results = read_pandas.leistungsanalyse(df, weight, age, resting_hr)
+
+                # Hauptmetriken in ansprechenden Cards
+                st.subheader("📊 Hauptmetriken")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric(
+                        "💓 Ø Herzfrequenz", 
+                        f"{results['avg_hr']:.1f} bpm",
+                        delta=f"Max: {results['max_hr']} bpm",
+                        border=True
+                    )
+                
+                with col2:
+                    st.metric(
+                        "⚡ Ø Leistung", 
+                        f"{results['avg_power']:.1f} W",
+                        delta=f"Max: {results['max_power']} W",
+                        border=True
+                    )
+                
+                with col3:
+                    st.metric(
+                        "⏱️ Gesamtdauer", 
+                        f"{results['total_time_min']:.1f} min",
+                        border=True
+                    )
+                
+                with col4:
+                    st.metric(
+                        "🔥 Kalorien", 
+                        f"{results['calories']:.0f} kcal",
+                        border=True
+                    )
+
+                # VO2max in separater Metrik falls verfügbar
+                if results['vo2max_est'] is not None:
+                    col_vo2_1, col_vo2_2, col_vo2_3 = st.columns([1, 2, 1])
+                    with col_vo2_2:
+                        st.metric(
+                            "🫁 Geschätzter VO2max", 
+                            f"{results['vo2max_est']:.1f} ml/kg/min",
+                            help="Maximale Sauerstoffaufnahme - Indikator für Ausdauerleistungsfähigkeit",
+                            border=True
+                        )
+                else:
+                    st.info("ℹ️ VO2max konnte nicht geschätzt werden - möglicherweise unzureichende Daten")
+
+                # Detailanalyse in Expandern
+                with st.expander("🎯 Herzfrequenzzonen-Analyse", expanded=True):
+                    zone_counts = df['Zone'].value_counts().sort_index()
+                    zone_minutes = zone_counts / 60
+                    
+                    st.subheader("🕒 Zeit in den verschiedenen Herzfrequenzzonen")
+                    
+                    # Zone-Definitionen für besseres Verständnis
+                    zone_descriptions = {
+                        "Zone 1": "Aktive Erholung (sehr leicht)",
+                        "Zone 2": "Grundlagenausdauer (leicht)", 
+                        "Zone 3": "Aerobe Schwelle (moderat)",
+                        "Zone 4": "Anaerobe Schwelle (hart)",
+                        "Zone 5": "Neuromuskuläre Leistung (maximal)"
+                    }
+                    
+                    # Zeige Zonen in Spalten
+                    zone_cols = st.columns(len(zone_minutes))
+                    for i, (zone, minutes) in enumerate(zone_minutes.items()):
+                        with zone_cols[i]:
+                            description = zone_descriptions.get(zone, "")
+                            st.metric(
+                                f"{zone}",
+                                f"{minutes:.1f} min",
+                                delta=description,
+                                border=True
+                            )
+
+                with st.expander("⚡ Leistungsanalyse nach Zonen", expanded=False):
+                    avg_power_per_zone = df.groupby('Zone')['PowerOriginal'].mean()
+                    
+                    st.subheader("💪 Durchschnittliche Leistung je Herzfrequenzzone")
+                    
+                    # Leistung pro Zone in Spalten
+                    power_cols = st.columns(len(avg_power_per_zone))
+                    for i, (zone, avg_power) in enumerate(avg_power_per_zone.items()):
+                        with power_cols[i]:
+                            st.metric(
+                                f"{zone}",
+                                f"{avg_power:.1f} W",
+                                border=True
+                            )
+
+                # Zusätzliche Insights
+                with st.expander("📈 Weitere Erkenntnisse", expanded=False):
+                    col_insight1, col_insight2 = st.columns(2)
+                    
+                    with col_insight1:
+                        st.subheader("🎯 Trainingsempfehlungen")
+                        
+                        # Einfache Trainingsempfehlungen basierend auf Zonen
+                        total_time = results['total_time_min']
+                        zone2_time = zone_minutes.get('Zone 2', 0)
+                        zone4_time = zone_minutes.get('Zone 4', 0)
+                        
+                        if zone2_time / total_time > 0.6:
+                            st.success("✅ Gute Grundlagenausdauer-Belastung")
+                        elif zone4_time / total_time > 0.3:
+                            st.warning("⚠️ Intensive Belastung - achten Sie auf ausreichende Erholung")
+                        else:
+                            st.info("ℹ️ Ausgewogene Belastungsverteilung")
+                    
+                    with col_insight2:
+                        st.subheader("📊 Leistungskennzahlen")
+                        
+                        # Berechne zusätzliche Kennzahlen
+                        hr_range = results['max_hr'] - results['min_hr']
+                        power_variability = (results['max_power'] - results['avg_power']) / results['avg_power'] * 100
+                        
+                        st.write(f"**Herzfrequenz-Spanne:** {hr_range} bpm")
+                        st.write(f"**Leistungsvariabilität:** {power_variability:.1f}%")
+                        st.write(f"**Kalorien pro Minute:** {results['calories']/results['total_time_min']:.1f} kcal/min")
+
+        except FileNotFoundError:
+            st.error("❌ Datei 'activity.csv' wurde nicht gefunden. Bitte stellen Sie sicher, dass die Datei im richtigen Verzeichnis liegt.")
+        except Exception as e:
+            st.error(f"❌ Fehler bei der Auswertung: {e}")
+            st.info("💡 Tipp: Überprüfen Sie das Datenformat und stellen Sie sicher, dass alle erforderlichen Spalten vorhanden sind.")
+
 # Analyzer initialisieren
 analyzer = EKGAnalyzer()
 
-with tab2:
+with tab4:
     st.header("🫀 EKG-Datenanalyse")
 
     # Upload eigener EKG-Daten
@@ -131,6 +455,7 @@ with tab2:
 
                 # NeuroKit2 HRV Analyse
                 try:
+                    import neurokit2 as nk
                     processed, info = nk.ecg_process(
                         ekg.df["Messwerte in mV"].values,
                         sampling_rate=ekg.sampling_rate
@@ -148,24 +473,18 @@ with tab2:
                             hrv_dict = hrv_time.iloc[0].to_dict()
                             
                             # Metriken für Zeitbereich
-                            st.metric("SDNN", f"{hrv_dict.get('HRV_SDNN', 0):.1f} ms", 
-                                     help="Standard Deviation of NN intervals", border=True)
-                            st.metric("RMSSD", f"{hrv_dict.get('HRV_RMSSD', 0):.1f} ms", 
-                                     help="Root Mean Square of Successive Differences", border=True)
-                            st.metric("pNN50", f"{hrv_dict.get('HRV_pNN50', 0):.1f}%", 
-                                     help="Percentage of NN intervals > 50ms", border=True)
+                            st.metric("SDNN", f"{hrv_dict.get('HRV_SDNN', 0):.1f} ms", border=True)
+                            st.metric("RMSSD", f"{hrv_dict.get('HRV_RMSSD', 0):.1f} ms", border=True)
+                            st.metric("pNN50", f"{hrv_dict.get('HRV_pNN50', 0):.1f}%", border=True)
                         
                         with col_hrv2:
                             st.subheader("📊 Frequenzbereich-Analyse")
                             freq_dict = hrv_freq.iloc[0].to_dict()
                             
                             # Metriken für Frequenzbereich
-                            st.metric("LF Power", f"{freq_dict.get('HRV_LF', 0):.1f} ms²", 
-                                     help="Low Frequency Power", border=True)
-                            st.metric("HF Power", f"{freq_dict.get('HRV_HF', 0):.1f} ms²", 
-                                     help="High Frequency Power", border=True)
-                            st.metric("LF/HF Ratio", f"{freq_dict.get('HRV_LFHF', 0):.2f}", 
-                                     help="Sympatho-vagal Balance", border=True)
+                            st.metric("LF Power", f"{freq_dict.get('HRV_LF', 0):.1f} ms²", border=True)
+                            st.metric("HF Power", f"{freq_dict.get('HRV_HF', 0):.1f} ms²", border=True)
+                            st.metric("LF/HF Ratio", f"{freq_dict.get('HRV_LFHF', 0):.2f}", border=True)
 
                 except Exception as e:
                     st.warning(f"⚠️ NeuroKit2 Analyse konnte nicht durchgeführt werden: {e}")
@@ -180,7 +499,7 @@ with tab2:
             
             # Auswahl gespeicherter Personen und EKG-Tests
             person_names = read_data.get_person_list()
-            selected_name = st.selectbox("👤 Name der Versuchsperson", options=person_names, key="tab2_select")
+            selected_name = st.selectbox("👤 Name der Versuchsperson", options=person_names, key="tab3_select")
             person_obj = Person.load_by_name(selected_name)
 
             if person_obj and person_obj.ekg_tests:
@@ -260,30 +579,39 @@ with tab2:
 
                 # NeuroKit2 Analyse
                 try:
+                    import neurokit2 as nk
                     processed, info = nk.ecg_process(ekg.df["Messwerte in mV"].values, sampling_rate=ekg.sampling_rate)
                     rpeaks = info["ECG_R_Peaks"]
                     hrv_time = nk.hrv_time(rpeaks, sampling_rate=ekg.sampling_rate, show=False)
                     hrv_freq = nk.hrv_frequency(rpeaks, sampling_rate=ekg.sampling_rate, show=False)
 
-                    # HRV-Bewertung in Expander
+                    # HRV-Bewertung in Expander mit klickbaren Buttons
                     with st.expander("📝 HRV-Bewertung", expanded=True):
                         interpretations = interpret_hrv_with_values(hrv_time.iloc[0].to_dict(), hrv_freq.iloc[0].to_dict())
                         
                         # Detaillierte HRV-Erklärungen
                         hrv_info = {
                             "SDNN": {
-                                "description": "Standard Deviation of NN intervals: Misst die Gesamtvariabilität der Herzfrequenz über einen bestimmten Zeitraum. Reflektiert die Aktivität des gesamten autonomen Nervensystems.\n\n📊 Bewertung:\n• >50ms = Ausgezeichnet (gesundes autonomes System)\n• 30-50ms = Moderat (leichte Belastung möglich)\n• <30ms = Niedrig (Stress oder Überlastung)"
+                                "title": "SDNN - Gesamtvariabilität",
+                                "description": "**Standard Deviation of NN intervals**\n\nMisst die Gesamtvariabilität der Herzfrequenz über einen bestimmten Zeitraum. Reflektiert die Aktivität des gesamten autonomen Nervensystems.\n\n📊 **Bewertung:**\n• >50ms = Ausgezeichnet (gesundes autonomes System)\n• 30-50ms = Moderat (leichte Belastung möglich)\n• <30ms = Niedrig (Stress oder Überlastung)"
                             },
                             "RMSSD": {
-                                "description": "Root Mean Square of Successive Differences: Misst die kurzfristige Herzfrequenzvariabilität und spiegelt hauptsächlich die parasympathische (vagale) Aktivität wider.\n\n📊 Bewertung:\n• >40ms = Sehr gut (hohe Erholungsfähigkeit)\n• 20-40ms = Moderat (durchschnittliche Erholung)\n• <20ms = Niedrig (geringe Erholung, möglicher Stress)"
+                                "title": "RMSSD - Parasympathische Aktivität",
+                                "description": "**Root Mean Square of Successive Differences**\n\nMisst die kurzfristige Herzfrequenzvariabilität und spiegelt hauptsächlich die parasympathische (vagale) Aktivität wider.\n\n📊 **Bewertung:**\n• >40ms = Sehr gut (hohe Erholungsfähigkeit)\n• 20-40ms = Moderat (durchschnittliche Erholung)\n• <20ms = Niedrig (geringe Erholung, möglicher Stress)"
                             },
                             "pNN50": {
-                                "description": "Percentage of NN intervals > 50ms: Prozentsatz der aufeinanderfolgenden RR-Intervalle, die sich um mehr als 50ms unterscheiden. Starker Indikator für parasympathische Aktivität.\n\n📊 Bewertung:\n• >10% = Hoch (gutes Erholungsniveau)\n• 5-10% = Mittel (moderate Erholung)\n• <5% = Niedrig (geringes Erholungsniveau)"
+                                "title": "pNN50 - Erholungsindikator",
+                                "description": "**Percentage of NN intervals > 50ms**\n\nProzentsatz der aufeinanderfolgenden RR-Intervalle, die sich um mehr als 50ms unterscheiden. Starker Indikator für parasympathische Aktivität.\n\n📊 **Bewertung:**\n• >10% = Hoch (gutes Erholungsniveau)\n• 5-10% = Mittel (moderate Erholung)\n• <5% = Niedrig (geringes Erholungsniveau)"
                             },
                             "LF/HF": {
-                                "description": "Low Frequency/High Frequency Ratio: Verhältnis zwischen niederfrequenten (0.04-0.15 Hz) und hochfrequenten (0.15-0.4 Hz) Komponenten der HRV. Zeigt das Gleichgewicht zwischen sympathischer und parasympathischer Aktivität.\n\n📊 Bewertung:\n• <2 = Ausgewogen (gesunde Balance)\n• 2-5 = Leicht sympathisch (erhöhter Stress möglich)\n• >5 = Stark sympathisch (hoher Stress/Aktivierung)"
+                                "title": "LF/HF Ratio - Autonome Balance",
+                                "description": "**Low Frequency/High Frequency Ratio**\n\nVerhältnis zwischen niederfrequenten (0.04-0.15 Hz) und hochfrequenten (0.15-0.4 Hz) Komponenten der HRV. Zeigt das Gleichgewicht zwischen sympathischer und parasympathischer Aktivität.\n\n📊 **Bewertung:**\n• <2 = Ausgewogen (gesunde Balance)\n• 2-5 = Leicht sympathisch (erhöhter Stress möglich)\n• >5 = Stark sympathisch (hoher Stress/Aktivierung)"
                             }
                         }
+                        
+                        # Session State für Info-Anzeige initialisieren
+                        if 'show_hrv_info' not in st.session_state:
+                            st.session_state.show_hrv_info = {}
                         
                         for i, (status, text) in enumerate(interpretations):
                             # Finde den entsprechenden HRV-Parameter
@@ -306,13 +634,39 @@ with tab2:
                             
                             with col_info:
                                 if current_param and current_param in hrv_info:
-                                    # Info-Button mit detaillierter Erklärung
-                                    st.button(
-                                        "ℹ️",
-                                        key=f"hrv_info_{current_param}_{i}",
-                                        help=hrv_info[current_param]["description"],
-                                        use_container_width=True
-                                    )
+                                    # Klickbarer Info-Button
+                                    button_key = f"hrv_info_btn_{current_param}_{i}"
+                                    if st.button("ℹ️", key=button_key, use_container_width=True):
+                                        # Toggle Info-Anzeige
+                                        if button_key in st.session_state.show_hrv_info:
+                                            st.session_state.show_hrv_info[button_key] = not st.session_state.show_hrv_info[button_key]
+                                        else:
+                                            st.session_state.show_hrv_info[button_key] = True
+                            
+                            # Zeige Info wenn Button geklickt wurde
+                            if current_param and f"hrv_info_btn_{current_param}_{i}" in st.session_state.show_hrv_info:
+                                if st.session_state.show_hrv_info[f"hrv_info_btn_{current_param}_{i}"]:
+                                    st.info(f"**{hrv_info[current_param]['title']}**\n\n{hrv_info[current_param]['description']}")
+
+                    # Zusätzlicher Expander mit allen HRV-Erklärungen
+                    with st.expander("📚 Alle HRV-Parameter Erklärungen", expanded=False):
+                        tab_sdnn, tab_rmssd, tab_pnn50, tab_lfhf = st.tabs(["SDNN", "RMSSD", "pNN50", "LF/HF"])
+                        
+                        with tab_sdnn:
+                            st.markdown(f"### {hrv_info['SDNN']['title']}")
+                            st.markdown(hrv_info['SDNN']['description'])
+                        
+                        with tab_rmssd:
+                            st.markdown(f"### {hrv_info['RMSSD']['title']}")
+                            st.markdown(hrv_info['RMSSD']['description'])
+                        
+                        with tab_pnn50:
+                            st.markdown(f"### {hrv_info['pNN50']['title']}")
+                            st.markdown(hrv_info['pNN50']['description'])
+                        
+                        with tab_lfhf:
+                            st.markdown(f"### {hrv_info['LF/HF']['title']}")
+                            st.markdown(hrv_info['LF/HF']['description'])
 
                     # HRV-Daten in Expander
                     with st.expander("🔬 Detaillierte HRV-Analyse", expanded=False):
@@ -437,59 +791,9 @@ with tab2:
             else:
                 st.info("⚠️ Keine Person ausgewählt oder keine EKG-Daten vorhanden.")
 
-with tab3:
-    st.header("🚴 Leistungstest-Auswertung")
-
-    weight = st.number_input("Gewicht (kg)", min_value=30, max_value=200, value=70)
-    age = st.number_input("Alter (Jahre)", min_value=10, max_value=120, value=30)
-    resting_hr = st.number_input("Ruhepuls (bpm)", min_value=30, max_value=120, value=60)
-    max_hr_input = st.number_input("Maximale Herzfrequenz (bpm) für Zonenanalyse", min_value=50, max_value=220, value=180)
-
-    if st.button("Auswertung starten"):
-        try:
-            df = read_pandas.read_my_csv()
-
-            zones = read_pandas.get_zone_limit(max_hr_input)
-            df['Zone'] = df['HeartRate'].apply(lambda x: read_pandas.assign_zone(x, zones))
-
-            fig = read_pandas.make_plot(df, zones)
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Leistungsanalyse mit Einzelparametern
-            results = read_pandas.leistungsanalyse(df, weight, age, resting_hr)
-
-            st.subheader("📊 Analyseergebnisse")
-            st.write(f"Durchschnittliche Herzfrequenz: {results['avg_hr']:.1f} bpm")
-            st.write(f"Maximale Herzfrequenz: {results['max_hr']} bpm")
-            st.write(f"Minimale Herzfrequenz: {results['min_hr']} bpm")
-            st.write(f"Durchschnittliche Leistung: {results['avg_power']:.1f} Watt")
-            st.write(f"Maximale Leistung: {results['max_power']} Watt")
-            st.write(f"Gesamtdauer: {results['total_time_min']:.1f} Minuten")
-            st.write(f"Geschätzte verbrannte Kalorien: {results['calories']:.0f} kcal")
-
-            if results['vo2max_est'] is not None:
-                st.write(f"Geschätzter VO2max: {results['vo2max_est']:.1f} ml/kg/min")
-            else:
-                st.write("VO2max konnte nicht geschätzt werden.")
-
-            zone_counts = df['Zone'].value_counts().sort_index()
-            zone_minutes = zone_counts / 60
-            st.subheader("🕒 Zeit in Herzfrequenzzonen (Minuten)")
-            for zone, minutes in zone_minutes.items():
-                st.write(f"{zone}: {minutes:.1f} min")
-
-            avg_power_per_zone = df.groupby('Zone')['PowerOriginal'].mean()
-            st.subheader("⚡ Durchschnittliche Leistung je Zone")
-            for zone, avg_power in avg_power_per_zone.items():
-                st.write(f"{zone}: {avg_power:.1f} Watt")
-
-        except FileNotFoundError:
-            st.error("Datei 'activity.csv' nicht gefunden.")
-        except Exception as e:
-            st.error(f"Fehler bei der Auswertung: {e}")
 
 
-with tab4:
+with tab5:
     st.header("🏋️ FIT-Datei Analyse")
 
     person_names = read_data.get_person_list()
@@ -847,132 +1151,6 @@ with tab4:
     else:
         st.info("Bitte wähle eine Person aus.")
 
-        
-# Tab 5: Neue Person hinzufügen
-with tab5:
-    st.header("➕ Neue Person hinzufügen")
-    st.write("Hier können Sie eine neue Versuchsperson zur Datenbank hinzufügen.")
-    
-    with st.form("add_person_form", clear_on_submit=True):
-        st.subheader("Persönliche Daten")
-        
-        # Layout in zwei Spalten
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**Grunddaten**")
-            firstname = st.text_input("Vorname*", 
-                                    placeholder="z.B. Max",
-                                    help="Bitte geben Sie den Vornamen ein")
-            
-            lastname = st.text_input("Nachname*", 
-                                   placeholder="z.B. Mustermann",
-                                   help="Bitte geben Sie den Nachnamen ein")
-            
-            gender = st.selectbox("Geschlecht*", 
-                                options=["male", "female"], 
-                                format_func=lambda x: "👨 Männlich" if x == "male" else "👩 Weiblich",
-                                help="Wählen Sie das Geschlecht aus")
-        
-        with col2:
-            st.markdown("**Geburtsdatum & Bild**")
-            
-            # Kalender für Geburtsdatum
-            birth_date = st.date_input(
-                "Geburtsdatum*",
-                value=date(2000, 1, 1),
-                min_value=date(1900, 1, 1),
-                max_value=date.today(),
-                help="Wählen Sie das Geburtsdatum aus dem Kalender"
-            )
-            
-            # Bildupload
-            uploaded_file = st.file_uploader(
-                "Profilbild (optional)", 
-                type=['png', 'jpg', 'jpeg'],
-                help="Laden Sie ein Profilbild hoch (PNG, JPG oder JPEG)"
-            )
-            
-            # Vorschau des hochgeladenen Bildes
-            if uploaded_file is not None:
-                try:
-                    preview_image = Image.open(uploaded_file)
-                    st.image(preview_image, caption="Bildvorschau", width=200)
-                except Exception as e:
-                    st.error(f"Fehler beim Anzeigen der Bildvorschau: {e}")
-        
-        # Zusätzliche Informationen
-        st.markdown("---")
-        st.markdown("**Zusätzliche Informationen**")
-        
-        # Berechne Alter basierend auf ausgewähltem Datum
-        if birth_date:
-            calculated_age = date.today().year - birth_date.year
-            if date.today() < date(date.today().year, birth_date.month, birth_date.day):
-                calculated_age -= 1
-            st.info(f"📅 Berechnetes Alter: {calculated_age} Jahre")
-        
-        # Submit-Buttons
-        st.markdown("---")
-        col_submit, col_reset = st.columns([1, 1])
-        
-        with col_submit:
-            submitted = st.form_submit_button(
-                "👤 Person speichern", 
-                type="primary",
-                use_container_width=True
-            )
-        
-        with col_reset:
-            reset_form = st.form_submit_button(
-                "🔄 Formular zurücksetzen",
-                use_container_width=True
-            )
-        
-        # Formular-Verarbeitung
-        if submitted:
-            # Validierung
-            if not firstname or not lastname:
-                st.error("❌ Bitte füllen Sie alle Pflichtfelder (*) aus.")
-            elif not birth_date:
-                st.error("❌ Bitte wählen Sie ein gültiges Geburtsdatum aus.")
-            else:
-                try:
-                    # Prüfe auf Duplikate
-                    if Person.person_exists(firstname, lastname):
-                        st.error(f"❌ Person {firstname} {lastname} existiert bereits in der Datenbank!")
-                    else:
-                        # Neue Person erstellen
-                        success = Person.add_new_person(
-                            firstname=firstname,
-                            lastname=lastname,
-                            birth_date=birth_date,  # Übergebe das date-Objekt
-                            gender=gender,
-                            uploaded_file=uploaded_file
-                        )
-                        
-                        if success:
-                            st.success(f"✅ Person {firstname} {lastname} wurde erfolgreich hinzugefügt!")
-                            st.balloons()  # Feier-Animation
-                            
-                            # Zeige Zusammenfassung
-                            with st.expander("📋 Zusammenfassung der hinzugefügten Person"):
-                                st.write(f"**Name:** {firstname} {lastname}")
-                                st.write(f"**Geschlecht:** {'Männlich' if gender == 'male' else 'Weiblich'}")
-                                st.write(f"**Geburtsdatum:** {birth_date.strftime('%d.%m.%Y')}")
-                                st.write(f"**Alter:** {calculated_age} Jahre")
-                                if uploaded_file:
-                                    st.write("**Profilbild:** ✅ Hochgeladen")
-                                else:
-                                    st.write("**Profilbild:** ❌ Nicht vorhanden")
-                        else:
-                            st.error("❌ Fehler beim Speichern der Person. Bitte versuchen Sie es erneut.")
-                
-                except Exception as e:
-                    st.error(f"❌ Unerwarteter Fehler: {str(e)}")
-        
-        if reset_form:
-            st.info("🔄 Formular wurde zurückgesetzt.")
 
 with tab6:
     st.header("📤 FIT-Datei hochladen und verwalten")
