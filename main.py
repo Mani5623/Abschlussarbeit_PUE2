@@ -794,6 +794,12 @@ with tab4:
 
 
 with tab5:
+    def safe_mean(series):
+        return series.mean() if series is not None and not series.dropna().empty else None
+
+    def safe_max(series):
+        return series.max() if series is not None and not series.dropna().empty else None
+
     st.header("🏋️ FIT-Datei Analyse")
 
     person_names = read_data.get_person_list()
@@ -846,7 +852,7 @@ with tab5:
                                                 'gps_distance' if 'gps_distance' in analyzer.df.columns and not analyzer.df['gps_distance'].isna().all() else None)
 
                                     if dist_col:
-                                        dist = analyzer.df[dist_col].max() / 1000
+                                        dist = analyzer.df[dist_col].safe_max() / 1000
 
                                         st.metric("📏 Distanz", f"{dist:.2f} km")
                                     else:
@@ -861,7 +867,7 @@ with tab5:
                     
                                 with col4:
                                     if 'calories' in analyzer.df.columns and not analyzer.df['calories'].isna().all():
-                                        calories = analyzer.df['calories'].max()
+                                        calories = analyzer.df['calories'].safe_max()
                                         st.metric("🔥 Kalorien", f"{calories:.0f} kcal")
                                     else:
                                         st.metric("🔥 Kalorien", "N/A")
@@ -880,8 +886,8 @@ with tab5:
                                                     'gps_speed' if 'gps_speed' in analyzer.df.columns and not analyzer.df['gps_speed'].isna().all() else None)
 
                                         if speed_col:
-                                            avg_speed = analyzer.df[speed_col].mean() * 3.6
-                                            max_speed = analyzer.df[speed_col].max() * 3.6
+                                            avg_speed = analyzer.df[speed_col].safe_mean() * 3.6
+                                            max_speed = analyzer.df[speed_col].safe_max() * 3.6
                                             st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h", f"Max: {max_speed:.1f}")
                                         else:
                                             st.metric("⚡ Geschwindigkeit", "N/A")
@@ -889,15 +895,15 @@ with tab5:
                                     
                                     with col2:
                                         if 'power' in analyzer.df.columns and not analyzer.df['power'].isna().all():
-                                            avg_power = analyzer.df['power'].mean()
-                                            max_power = analyzer.df['power'].max()
+                                            avg_power = analyzer.df['power'].safe_mean()
+                                            max_power = analyzer.df['power'].safe_max()
                                             st.metric("🔋 Leistung", f"{avg_power:.0f} W", f"Max: {max_power:.0f}")
                                         else:
                                             st.metric("🔋 Leistung", "N/A")
                                     
                                     with col3:
                                         if 'cadence' in analyzer.df.columns and not analyzer.df['cadence'].isna().all():
-                                            avg_cad = analyzer.df['cadence'].mean()
+                                            avg_cad = analyzer.df['cadence'].safe_mean()
                                             st.metric("🔄 Kadenz", f"{avg_cad:.0f} rpm")
                                         else:
                                             st.metric("🔄 Kadenz", "N/A")
@@ -919,8 +925,8 @@ with tab5:
                                                     'gps_speed' if 'gps_speed' in analyzer.df.columns and not analyzer.df['gps_speed'].isna().all() else None)
 
                                         if speed_col:
-                                            avg_speed = analyzer.df[speed_col].mean() * 3.6
-                                            max_speed = analyzer.df[speed_col].max() * 3.6
+                                            avg_speed = analyzer.df[speed_col].safe_mean() * 3.6
+                                            max_speed = analyzer.df[speed_col].safe_max() * 3.6
                                             st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h", f"Max: {max_speed:.1f}")
                                         else:
                                             st.metric("⚡ Geschwindigkeit", "N/A")
@@ -930,7 +936,7 @@ with tab5:
                                                     'gps_distance' if 'gps_distance' in analyzer.df.columns and not analyzer.df['gps_distance'].isna().all() else None)
 
                                         if dist_col:
-                                            dist = analyzer.df[dist_col].max() / 1000
+                                            dist = analyzer.df[dist_col].safe_max() / 1000
                                             if dist > 0 and analyzer.duration_hours > 0:
                                                 pace = (analyzer.duration_hours * 60) / dist
                                                 pace_min = int(pace)
@@ -943,7 +949,7 @@ with tab5:
                                     
                                     with col3:
                                         if 'cadence' in analyzer.df.columns and not analyzer.df['cadence'].isna().all():
-                                            avg_cad = analyzer.df['cadence'].mean()
+                                            avg_cad = analyzer.df['cadence'].safe_mean()
                                             st.metric("👟 Schrittfrequenz", f"{avg_cad:.0f} spm")
                                         else:
                                             st.metric("👟 Schrittfrequenz", "N/A")
@@ -962,14 +968,14 @@ with tab5:
                                     
                                     with col1:
                                         if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
-                                            dist = analyzer.df['distance'].max()
+                                            dist = analyzer.df['distance'].safe_max()
                                             st.metric("🏊 Distanz", f"{dist:.0f} m")
                                         else:
                                             st.metric("🏊 Distanz", "N/A")
                                     
                                     with col2:
                                         if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
-                                            dist = analyzer.df['distance'].max()
+                                            dist = analyzer.df['distance'].safe_max()
                                             if dist > 0 and analyzer.duration_hours > 0:
                                                 pace = (analyzer.duration_hours * 60) / (dist / 100)
                                                 st.metric("⏱️ Pace", f"{pace:.2f} min/100m")
@@ -980,14 +986,14 @@ with tab5:
                                     
                                     with col3:
                                         if 'total_strokes' in analyzer.df.columns and not analyzer.df['total_strokes'].isna().all():
-                                            avg_strokes = analyzer.df['total_strokes'].mean()
+                                            avg_strokes = analyzer.df['total_strokes'].safe_mean()
                                             st.metric("💦 Züge", f"{avg_strokes:.1f}")
                                         else:
                                             st.metric("💦 Züge", "N/A")
                                     
                                     with col4:
                                         if 'swolf' in analyzer.df.columns and not analyzer.df['swolf'].isna().all():
-                                            avg_swolf = analyzer.df['swolf'].mean()
+                                            avg_swolf = analyzer.df['swolf'].safe_mean()
                                             st.metric("🔢 SWOLF", f"{avg_swolf:.1f}")
                                         else:
                                             st.metric("🔢 SWOLF", "N/A")
