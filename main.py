@@ -842,12 +842,8 @@ with tab5:
                                     st.metric("⏱️ Dauer", analyzer.format_duration())
                     
                                 with col2:
-                                    dist_col = 'distance' if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all() else (
-                                                'gps_distance' if 'gps_distance' in analyzer.df.columns and not analyzer.df['gps_distance'].isna().all() else None)
-
-                                    if dist_col:
-                                        dist = analyzer.df[dist_col].max() / 1000
-
+                                    if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                                        dist = analyzer.df['distance'].max() / 1000
                                         st.metric("📏 Distanz", f"{dist:.2f} km")
                                     else:
                                         st.metric("📏 Distanz", "N/A")
@@ -876,16 +872,12 @@ with tab5:
                                     col1, col2, col3, col4 = st.columns(4)
                                     
                                     with col1:
-                                        speed_col = 'speed' if 'speed' in analyzer.df.columns and not analyzer.df['speed'].isna().all() else (
-                                                    'gps_speed' if 'gps_speed' in analyzer.df.columns and not analyzer.df['gps_speed'].isna().all() else None)
-
-                                        if speed_col:
-                                            avg_speed = analyzer.df[speed_col].mean() * 3.6
-                                            max_speed = analyzer.df[speed_col].max() * 3.6
+                                        if 'speed' in analyzer.df.columns and not analyzer.df['speed'].isna().all():
+                                            avg_speed = analyzer.df['speed'].mean() * 3.6
+                                            max_speed = analyzer.df['speed'].max() * 3.6
                                             st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h", f"Max: {max_speed:.1f}")
                                         else:
                                             st.metric("⚡ Geschwindigkeit", "N/A")
-
                                     
                                     with col2:
                                         if 'power' in analyzer.df.columns and not analyzer.df['power'].isna().all():
@@ -915,22 +907,15 @@ with tab5:
                                     col1, col2, col3, col4 = st.columns(4)
                                     
                                     with col1:
-                                        speed_col = 'speed' if 'speed' in analyzer.df.columns and not analyzer.df['speed'].isna().all() else (
-                                                    'gps_speed' if 'gps_speed' in analyzer.df.columns and not analyzer.df['gps_speed'].isna().all() else None)
-
-                                        if speed_col:
-                                            avg_speed = analyzer.df[speed_col].mean() * 3.6
-                                            max_speed = analyzer.df[speed_col].max() * 3.6
-                                            st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h", f"Max: {max_speed:.1f}")
+                                        if 'speed' in analyzer.df.columns and not analyzer.df['speed'].isna().all():
+                                            avg_speed = analyzer.df['speed'].mean() * 3.6
+                                            st.metric("⚡ Geschwindigkeit", f"{avg_speed:.1f} km/h")
                                         else:
                                             st.metric("⚡ Geschwindigkeit", "N/A")
                                     
                                     with col2:
-                                        dist_col = 'distance' if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all() else (
-                                                    'gps_distance' if 'gps_distance' in analyzer.df.columns and not analyzer.df['gps_distance'].isna().all() else None)
-
-                                        if dist_col:
-                                            dist = analyzer.df[dist_col].max() / 1000
+                                        if 'distance' in analyzer.df.columns and not analyzer.df['distance'].isna().all():
+                                            dist = analyzer.df['distance'].max() / 1000
                                             if dist > 0 and analyzer.duration_hours > 0:
                                                 pace = (analyzer.duration_hours * 60) / dist
                                                 pace_min = int(pace)
