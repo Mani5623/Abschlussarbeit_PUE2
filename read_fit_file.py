@@ -61,8 +61,8 @@ class FitFileAnalyzer:
             self.df['time_seconds'] = (self.df['timestamp'] - start_time).dt.total_seconds()
 
         self._calculate_duration()
-        self._add_gps_based_metrics()
         self._get_available_metrics()
+        self._add_gps_based_metrics()
 
     def _calculate_duration(self):
         if 'time_seconds' not in self.df or self.df.empty:
@@ -75,8 +75,6 @@ class FitFileAnalyzer:
             metric: label for metric, label in self.AVAILABLE_METRICS.items()
             if metric in self.df.columns and not self.df[metric].isna().all()
         }
-        if 'gps_speed' in self.df.columns and not self.df['gps_speed'].isna().all():
-            self.available_metrics['gps_speed'] = 'GPS-Geschwindigkeit'
 
     def _add_gps_based_metrics(self):
         lat, lon, mask = self._get_lat_lon_optimized()
@@ -96,7 +94,6 @@ class FitFileAnalyzer:
                 delta_s = np.diff(cum_dist)
                 gps_speed = np.append([0], delta_s / np.maximum(delta_t, 1e-3))
                 self.df.loc[mask, 'gps_speed'] = gps_speed
-                self.df['gps_speed'] = self.df['gps_speed'].fillna(method='ffill').fillna(method='bfill')
 
         if ('altitude' not in self.df.columns or self.df['altitude'].isna().all()) and 'enhanced_altitude' in self.df.columns:
             print("⚠️ Höhenmeter werden aus 'enhanced_altitude' berechnet.")
@@ -117,6 +114,16 @@ class FitFileAnalyzer:
             'avg': self.df['heart_rate'].mean(),
             'max': self.df['heart_rate'].max()
         }
+
+    def format_duration(self):
+        total_seconds = int(self.duration_hours * 3600)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m {seconds}s"
 
     def create_heart_rate_plot(self):
         return self._create_time_plot('heart_rate', 'Herzfrequenzverlauf', 'Herzfrequenz (bpm)')
